@@ -1,0 +1,44 @@
+/* PDF (yazdır): yalnız .print-root görünür; renkler kâğıda da basılır. */
+@page { size: A4; margin: 14mm 12mm; }
+body { background: #fff !important; color: #141A2E; font: 10.5pt/1.35 'Inter', system-ui, sans-serif; }
+.shell, .sheet-backdrop, .toast { display: none !important; }
+.print-root { display: block !important; }
+* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.grad-logo { background: linear-gradient(120deg, #3456DE, #22BFD0) !important; color: #fff; }
+.grad-offer { background: linear-gradient(120deg, #12873C, #3CC795) !important; color: #fff; }
+.grad-conv { background: linear-gradient(120deg, #5048CF, #A77BEA) !important; color: #fff; }
+
+.pr-logo { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.pr-logo img { width: 30px; height: 30px; }
+.pr-logo span { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 18pt; color: #1C2B6E; }
+.pr-band { display: flex; justify-content: space-between; align-items: flex-end; padding: 12px 16px; border-radius: 4pt; margin-bottom: 10px; }
+.pr-title { font-size: 17pt; font-weight: 700; }
+.pr-date { font-size: 9pt; opacity: .9; }
+.pr-rep { font-size: 8.5pt; opacity: .95; }
+.pr-fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px 14px; border: 1px solid #E3E7F2; border-radius: 4pt; padding: 8px 12px; margin-bottom: 10px; }
+.pr-fields span { display: block; font-size: 8pt; color: #5B6478; }
+.pr-fields strong { font-size: 10pt; }
+.pr-boxes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+.pr-box { position: relative; padding: 7px 10px 7px 14px; border-radius: 4pt; background: #EEF2FD; overflow: hidden; }
+.pr-box::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #2F5FE0; }
+.pr-box.navy { background: #E6E9F5; } .pr-box.navy::before { background: #1C2B6E; }
+.pr-box.teal { background: #E5F5F7; } .pr-box.teal::before { background: #17A9B9; }
+.pr-box.green { background: #E3F4E8; } .pr-box.green::before { background: #12873C; }
+.pr-box.indigo { background: #EEEAFB; } .pr-box.indigo::before { background: #5048CF; }
+.pr-box.cost::before { display: none; }
+.pr-box.cost { grid-column: span 2; }
+.pr-box span { display: block; font-size: 8pt; opacity: .85; }
+.pr-box strong { display: block; font-size: 12pt; }
+.pr-box.cost strong { font-size: 16pt; }
+.pr-box em { font-style: normal; font-size: 8pt; opacity: .9; }
+.pr-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+.pr-table thead tr { background: inherit; }
+.pr-table th { text-align: left; padding: 6px 10px; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .04em; color: #fff; }
+.pr-table td { padding: 4.5px 10px; border-bottom: 1px solid #EDF0F7; }
+.pr-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.pr-table tr.down td { background: #E6E9F5; color: #1C2B6E; font-weight: 600; }
+.pr-table tr.interim td { background: #E5F5F7; color: #0B7380; font-weight: 600; }
+.pr-table tr.grace td { background: #FCEFD6; color: #9A5B00; }
+.pr-table tr.grace td:first-child { box-shadow: inset 4px 0 #F59E0B; }
+.pr-table tfoot td { font-weight: 700; background: #EEF1F8; border-top: 2px solid #C9D2E6; }
+.pr-table tr { break-inside: avoid; }
