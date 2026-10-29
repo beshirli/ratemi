@@ -1,8 +1,8 @@
 // Çevrimdışı çalışma: uygulama dosyaları önbellekte; yeni sürüm yayınlanınca VERSION artırılır.
-const VERSION = 'ratemi-v4';
+const VERSION = 'ratemi-v5';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css', 'css/print.css',
-  'js/main.js', 'js/ui.js', 'js/screens.js', 'js/builder.js', 'js/sheets.js', 'js/print.js', 'js/finance.js', 'js/format.js', 'js/store.js',
+  'js/main.js', 'js/ui.js', 'js/screens.js', 'js/builder.js', 'js/sheets.js', 'js/print.js', 'js/finance.js', 'js/format.js', 'js/store.js', 'js/account.js', 'js/cloud.js',
   'vendor/preact-htm.js', 'img/logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-32.png', 'img/icon-180.png',
 ];
 
@@ -16,7 +16,8 @@ self.addEventListener('activate', (e) => {
 
 // Önce ağ (güncel sürüm), ağ yoksa önbellek.
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  // Yalnız sitenin kendi dosyaları; Firebase istekleri doğrudan gider.
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
     // no-cache: tarayıcının HTTP önbelleği yerine her seferinde sunucuya sorar (değişmediyse hızlı 304).
     fetch(e.request, { cache: 'no-cache' })

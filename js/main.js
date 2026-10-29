@@ -1,10 +1,11 @@
 // Uygulama durumu, gezinme ve kayıt işlemleri (Android'deki AppViewModel'in karşılığı).
 import { html, render, useState, useEffect, useRef, useMemo } from '../vendor/preact-htm.js';
-import { Finance, Kind, Schedules, analyze, RowEdits, Offers, sortRows, pay, DateX } from './finance.js';
+import { Finance, Kind, Schedules, analyze, RowEdits, Offers, Conversion, sortRows, pay, DateX, basePrice, valueOf } from './finance.js';
 import { moneyShort, percent, editable, dateShort } from './format.js';
 import { AppCtx, Icon, Logo } from './ui.js';
 import { HomeScreen, TemplatesScreen, OfferScreen, ConverterScreen, SettingsScreen, BaseRatePill } from './screens.js';
 import { PlanBuilderScreen } from './builder.js';
+import { LoginScreen, Splash } from './account.js';
 import { RateSheet, AmountSheet, NameSheet } from './sheets.js';
 import { PrintDoc } from './print.js';
 import { loadSettings, saveSettings, loadRecords, saveRecords, newId, backupJson, parseBackup, loadDraft, saveDraft } from './store.js';
@@ -30,6 +31,10 @@ function App() {
   const [shareFields, setShareFields] = useState({ analysis: true });
   const undoStack = useRef([]);
   const [canUndo, setCanUndo] = useState(false);
+  // Oturum: undefined = açılıyor, null = giriş yapılmamış, { username, name, role, uid } = içeride.
+  const [cloud, setCloud] = useState(null);
+  const [session, setSessionState] = useState(undefined);
+  const [sessionError, setSessionError] = useState('');
   const state = useRef({});
   state.current = { stack, sheetEl, plan, dirty };
 
@@ -91,6 +96,61 @@ function App() {
   const sheet = (el) => { pushHistory(); setSheetEl(el); };
   const closeSheet = () => { if (state.current.sheetEl) history.back(); };
 
+  // --- Oturum ve kullanım ölçümü ---
+  useEffect(() => {
+    let first = true;
+    const cached = () => { try { return JSON.parse(localStorage.getItem('ratemi.session')); } catch { return null; } };
+    import('./cloud.js').then((c) => {
+      setCloud(c);
+      c.watchSession((s) => {
+        if (s && s.error) {
+          // İnternet yoksa son oturumla devam (ölçüm yapılamaz).
+          const old = cached();
+          setSessionState(old || null);
+          if (!old) setSessionError(c.errorText(s.error));
+          return;
+        }
+        c.setSession(s);
+        setSessionState(s);
+        try { s ? localStorage.setItem('ratemi.session', JSON.stringify(s)) : localStorage.removeItem('ratemi.session'); } catch { /* özel pencere */ }
+        if (s && first) c.track('open');
+        first = false;
+      });
+    }).catch(() => {
+      const old = cached();
+      setSessionState(old || null);
+      if (!old) setSessionError('İnternet bağlantısı yok; giriş için bağlan.');
+    });
+  }, []);
+
+  const track = (type, detail) => { if (cloud) cloud.track(type, detail); };
+  const pendingTrack = useRef({});
+  const lastTracked = useRef({});
+  /** Deneme yanılmada her tuşu saymamak için: 8 sn değişmeyen ve öncekinden farklı sonuç bir kez kaydedilir. */
+  const trackLater = (key, type, detail) => {
+    clearTimeout(pendingTrack.current[key]);
+    pendingTrack.current[key] = setTimeout(() => {
+      const j = JSON.stringify(detail);
+      if (lastTracked.current[key] === j) return;
+      lastTracked.current[key] = j;
+      track(type, detail);
+    }, 8000);
+  };
+  const planSummary = (p) => {
+    const i = p.input, a = analyze(p, settings.baseRate, taxes), bp = basePrice(i);
+    return {
+      loanType: i.loanType, listPrice: i.listPrice, months: i.months, rate: i.rate, grace: i.graceMonths || 0,
+      down: bp > 0 ? Math.round(valueOf(i.down, bp) / bp * 1000) / 10 : 0, interims: i.interims.length,
+      cost: a.costRatio != null ? Math.round(a.costRatio * 10000) / 10000 : null,
+    };
+  };
+
+  const logout = async () => {
+    if (!confirm('Çıkış yapılsın mı?')) return;
+    if (cloud) await cloud.logout(session);
+    setStack(['home']);
+  };
+
   const showToast = (text, undo) => {
     const id = Date.now();
     setToast({ id, text, undo });
@@ -132,6 +192,7 @@ function App() {
 
   const change = (p) => {
     setPlan(p); setDirty(true);
+    if (p.input.listPrice > 0) trackLater('plan', 'plan', planSummary(p));
     saveDraft({ plan: p, dirty: true });
   };
 
@@ -151,6 +212,7 @@ function App() {
     setPlan(saved); setDirty(false);
     saveDraft({ plan: saved, dirty: false });
     showToast(`“${saved.name}” kaydedildi.`);
+    track('plan_saved', planSummary(saved));
   };
 
   const openPlan = (rec) => {
@@ -196,6 +258,7 @@ function App() {
       const t = Schedules.toTemplate(p, name || 'Şablon', settings.baseRate, taxes);
       upsert({ id: newId(), type: 'TEMPLATE', name: t.name, data: { input: t.input, rows: t.rows, balance: t.balance } });
       showToast(`“${t.name}” şablon olarak kaydedildi.`);
+      track('template', planSummary(p));
     },
   };
 
@@ -232,6 +295,7 @@ function App() {
     if (o.cashPrice > 0 && Offers.total(o) > 0) {
       if (!next.id) next = { ...next, id: newId() };
       upsert({ id: next.id, type: 'OFFER', name, data: { offer: o, start: next.start } });
+      trackLater('offer', 'offer', { cashPrice: o.cashPrice, total: Offers.total(o), irr: irr ? irr.monthly : null });
     }
     setOffer(next);
   };
@@ -252,6 +316,7 @@ function App() {
       if (!next.id) next = { ...next, id: newId() };
       const { id, name: n, ...data } = next;
       upsert({ id, type: 'CONVERSION', name: n, data });
+      trackLater('conv', 'conversion', { amount: nominal, series: !!c.series, rate: c.rate });
     }
     setConversion(next);
   };
@@ -295,7 +360,7 @@ function App() {
   };
 
   // --- PDF (yazdır) ---
-  const print = (doc) => setPrintDoc(doc);
+  const print = (doc) => { setPrintDoc(doc); track('pdf', doc.kind === 'plan' ? planSummary(doc.plan) : { kind: doc.kind }); };
   useEffect(() => {
     if (!printDoc) return;
     const done = () => setPrintDoc(null);
@@ -308,7 +373,7 @@ function App() {
     settings, updateSettings, records, go, back, screen, plan, dirty, newPlan, resetPlan, updateInput, savePlan, autoName,
     analyzePlan, planOps, templateCost, useTemplate, renameTemplate, deleteRecord, restoreRecord, purgeRecord, emptyTrash,
     offer, newOffer, updateOffer, conversion, newConversion, updateConversion, openRecord, sheet, closeSheet, editBaseRate,
-    exportBackup, importBackup, print, shareFields, setShareFields,
+    exportBackup, importBackup, print, shareFields, setShareFields, cloud, session, sessionError, logout,
   };
 
   const Screen = {
@@ -317,6 +382,12 @@ function App() {
     offer: offer ? OfferScreen : HomeScreen, converter: conversion ? ConverterScreen : HomeScreen,
   }[screen] || HomeScreen;
   const tab = stack.includes('templates') ? 'templates' : screen === 'settings' ? 'settings' : 'home';
+
+  if (session === undefined) return html`<${Splash} />`;
+  if (session === null) {
+    if (!cloud) return html`<${Splash} text=${sessionError || 'Bağlanıyor…'} />`;
+    return html`<${AppCtx.Provider} value=${app}><${LoginScreen} /></${AppCtx.Provider}>`;
+  }
 
   return html`
     <${AppCtx.Provider} value=${app}>

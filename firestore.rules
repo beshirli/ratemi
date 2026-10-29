@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// Ratemi veritabanı kuralları: Firebase konsolu › Firestore › Rules sekmesine yapıştırılıp "Publish" edilir.
+// config/admin: yönetici (ilk kurulumda bir kez yazılır) · logins: kullanıcı adı → giriş e-postası
+// accounts: kullanıcılar (yalnız yönetici yazar) · events: kullanım olayları (kullanıcı yazar, yalnız yönetici okur)
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function adminDoc() { return /databases/$(database)/documents/config/admin; }
+    function isAdmin() { return signedIn() && exists(adminDoc()) && get(adminDoc()).data.uid == request.auth.uid; }
+    function accountDoc(u) { return /databases/$(database)/documents/accounts/$(u); }
+    function activeUser(u) {
+      return signedIn() && exists(accountDoc(u))
+        && get(accountDoc(u)).data.uid == request.auth.uid
+        && get(accountDoc(u)).data.active == true;
+    }
+
+    match /config/admin {
+      allow get: if true;
+      allow create: if signedIn() && !exists(adminDoc()) && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /logins/{username} {
+      allow get: if true;
+      allow list: if false;
+      allow write: if isAdmin();
+    }
+
+    match /accounts/{username} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow write: if isAdmin();
+    }
+
+    match /events/{id} {
+      allow create: if activeUser(request.resource.data.username) && request.resource.data.uid == request.auth.uid;
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+  }
+}

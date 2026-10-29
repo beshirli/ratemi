@@ -10,6 +10,7 @@ import {
   RateSheet, AmountSheet, BlockSheet, SingleSheet, NameSheet, ConflictSheet, TargetCostSheet, RowEditSheet, ShareSheet,
 } from './sheets.js';
 import { TRASH_DAYS } from './store.js';
+import { AccountSection } from './account.js';
 
 const KIND = {
   SCHEDULE: { label: 'Planlar', icon: 'table', tone: 'blue', color: 'var(--tint)' },
@@ -295,6 +296,7 @@ export function SettingsScreen() {
     <div class="screen">
       <${TopBar} title="Ayarlar" onBack=${app.back} />
       <div class="content narrow settings">
+        ${app.session && html`<${AccountSection} />`}
         <${SectionCard} title="Baz oran">
           <button class="picker-row plain" onClick=${app.editBaseRate}>
             <span class="grow"><span class="row-title">Alternatif maliyet</span><span class="caption">Paranın başka yerde ayda kazandığı · NBD bu oranla hesaplanır</span></span>
@@ -337,7 +339,7 @@ export function SettingsScreen() {
             </div>`)}
           ${trash.length > 0 && html`<${OutlineButton} color="var(--red)" icon="trash" onClick=${app.emptyTrash}>Çöp kutusunu boşalt</${OutlineButton}>`}
         </${SectionCard}>
-        <p class="caption center">Ratemi web · hesaplar cihazında yapılır, internete veri gönderilmez.</p>
+        <p class="caption center">Ratemi web · hesaplar cihazında yapılır; kayıtlı planlar bu cihazda kalır. Giriş ve kullanım bilgileri uygulama sahibine iletilir.</p>
       </div>
     </div>`;
 }
