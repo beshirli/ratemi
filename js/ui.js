@@ -100,7 +100,10 @@ export const IconTile = ({ icon, tone = 'blue', size = 'md' }) => html`
 export const Badge = ({ children, tone = 'blue' }) => html`<span class=${'badge tone-' + tone}>${children}</span>`;
 
 export const Logo = ({ small }) => html`
-  <div class=${'brand' + (small ? ' small' : '')}><img src="img/logo.png" alt="" /><span class="wordmark">Ratemi</span></div>`;
+  <div class=${'brand' + (small ? ' small' : '')}>
+    <img src="img/logo.png" alt="" />
+    <span class="brand-text"><span class="wordmark">Ratemi</span><span class="byline">Nazım Beşirli tarafından geliştirildi</span></span>
+  </div>`;
 
 // --- Sayı alanları ---
 

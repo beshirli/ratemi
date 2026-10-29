@@ -71,7 +71,9 @@ p { margin: 0; }
 @media (max-width: 959px) { .desktop-only { display: none !important; } }
 
 .brand { display: flex; align-items: center; gap: 8px; }
-.brand img { width: 34px; height: 34px; }
+.brand img { width: 38px; height: 38px; }
+.brand-text { display: flex; flex-direction: column; line-height: 1.05; }
+.byline { white-space: nowrap; font-size: 11px; font-weight: 500; color: var(--label2); letter-spacing: .01em; margin-top: 2px; }
 .wordmark { font-family: 'Nunito', var(--font); font-weight: 800; font-size: 24px; color: var(--wordmark); letter-spacing: -.01em; }
 
 .app-header { padding: 10px 16px 0; padding-top: calc(10px + env(safe-area-inset-top, 0px)); }

@@ -3,7 +3,7 @@ import { html, useState } from '../vendor/preact-htm.js';
 import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, Offers, Conversion, ValueConverter, DateX } from './finance.js';
 import { money, moneyShort, percent, dateShort, dateMid, dayShift, editable } from './format.js';
 import {
-  Icon, IconButton, GradientButton, OutlineButton, TextAction, Card, SectionCard, Chip, Segmented, SwitchRow,
+  Icon, IconButton, Logo, GradientButton, OutlineButton, TextAction, Card, SectionCard, Chip, Segmented, SwitchRow,
   IconTile, Badge, BigAmountField, AmountPercentFields, StepperField, DateRow, TopBar, NumberField, FieldBox, useApp,
 } from './ui.js';
 import {
@@ -42,7 +42,6 @@ const MobileHeader = ({ children }) => {
     ${children}
   </header>`;
 };
-const Logo = () => html`<div class="brand"><img src="img/logo.png" alt="" /><span class="wordmark">Ratemi</span></div>`;
 
 // --- Ana sayfa ---
 
