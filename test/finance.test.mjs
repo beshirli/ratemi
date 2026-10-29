@@ -1,5 +1,5 @@
 // Android FinanceTest'teki örnek rakamlar: node test/finance.test.mjs
-import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice } from '../js/finance.js';
+import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice, Solve } from '../js/finance.js';
 import { parseNumber } from '../js/format.js';
 let fails = 0;
 const eq = (name, exp, got, tol = 1e-9) => { const ok = Math.abs(exp - got) <= tol; if (!ok) fails++; console.log(`${ok ? 'OK  ' : 'FAIL'} ${name}: ${got} (beklenen ${exp})`); };
@@ -38,5 +38,12 @@ eq('teklif toplam', 4520000, Offers.total(offer)); eq('IRR', 0.017772, Offers.ir
 eq('dönem', 12.5, ValueConverter.period(DateX.of(2026, 1, 1), DateX.of(2027, 1, 16)), 1e-12);
 eq('ay sonu', DateX.of(2027, 2, 28), DateX.plusMonths(DateX.of(2027, 1, 31), 1));
 eq('sayı', 1234567.89, parseNumber('₺1.234.567,89')); eq('sayı2', 500000, parseNumber('500.000')); eq('sayı3', 3.49, parseNumber('3.49'));
+// Hedef maliyetten oran ve indirim: bulunan değerle plan kurulunca maliyet hedefe eşit.
+const r10 = Solve.rateForCost(sale, 0.10, 0.0299, taxes);
+eq('hedef %10 → oran ile maliyet', 0.10, Solve.costOf({ ...sale, rate: r10 }, 0.0299, taxes), 1e-5);
+eq('hedef = mevcut → aynı oran', 0.02, Solve.rateForCost(sale, Solve.costOf(sale, 0.0299, taxes), 0.0299, taxes), 1e-6);
+const d18 = Solve.discountForCost(sale, 0.18, 0.0299, taxes);
+eq('hedef %18 → indirimle maliyet', 0.18, Solve.costOf({ ...sale, discountOn: true, discount: { amount: d18, percent: false } }, 0.0299, taxes), 1e-5);
+eq('ulaşılamayan hedef', 1, Solve.rateForCost(sale, 0.9, 0.0299, taxes) === null ? 1 : 0);
 console.log(fails ? `${fails} HATA` : 'Tüm testler geçti');
 process.exit(fails ? 1 : 0);

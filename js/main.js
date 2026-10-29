@@ -191,13 +191,6 @@ function App() {
       for (let m = from; m <= to; m++) added.push(pay(id++, m, amount, Kind.INSTALLMENT, { locked: true, manual: true }));
       return [...kept, ...added];
     }),
-    setTargetCost(pct) {
-      const p = state.current.plan;
-      const rows = Schedules.build(p, taxes).rows;
-      undoStack.current = [...undoStack.current, p];
-      setCanUndo(true);
-      change({ ...p, rows, balance: { rate: settings.baseRate, nbd: p.input.listPrice * (1 - pct / 100) } });
-    },
     saveTemplate(name) {
       const p = state.current.plan;
       const t = Schedules.toTemplate(p, name || 'Şablon', settings.baseRate, taxes);

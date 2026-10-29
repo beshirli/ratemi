@@ -289,3 +289,45 @@ export const Conversion = {
   seriesPresent: (c) => ValueConverter.seriesPresent(Offers.rows(c.payments), c.rate),
   nominal: (c) => (c.series ? Offers.total(c.payments) : c.amount),
 };
+
+// --- Hedef maliyetten geriye: hangi vade farkı ya da ne kadar ek nakit indirim? ---
+
+/** Girdilerden oluşan planın maliyet oranı (aşımda null). */
+function costOf(input, baseRate, taxes) {
+  const a = analyze({ input, rows: null, balance: null }, baseRate, taxes);
+  return a.schedule.overflow ? null : a.costRatio;
+}
+
+/** Artan ya da azalan f için f(x) = hedef çözümü (yarılama); aralıkta yoksa null. */
+function bisect(f, lo, hi, target, increasing) {
+  const flo = f(lo), fhi = f(hi);
+  if (flo == null || fhi == null) return null;
+  const [min, max] = increasing ? [flo, fhi] : [fhi, flo];
+  if (target < min - 1e-12 || target > max + 1e-12) return null;
+  for (let i = 0; i < 80; i++) {
+    const mid = (lo + hi) / 2;
+    const v = f(mid);
+    if (v == null) return null;
+    if ((v < target) === increasing) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+export const Solve = {
+  costOf,
+  /** Hedef maliyet oranı için aylık vade farkı (girilen, vergisiz oran). Oran büyüdükçe maliyet düşer. */
+  rateForCost(input, target, baseRate, taxes) {
+    const r = bisect((x) => costOf({ ...input, rate: x }, baseRate, taxes), 0, 0.5, target, false);
+    return r == null ? null : Math.round(r * 1e6) / 1e6;
+  },
+  /** Mevcut oranla hedef maliyete ulaşmak için toplam peşin indirim (TL). İndirim büyüdükçe maliyet artar. */
+  discountForCost(input, target, baseRate, taxes) {
+    const withD = (d) => ({ ...input, discountOn: d > 0, discount: { amount: d, percent: false } });
+    const f = (x) => costOf(withD(x), baseRate, taxes);
+    // Çok büyük indirimde peşinat / ara ödemeler fiyatı aşar; üst sınırı aşımın altına çek.
+    let hi = input.listPrice * 0.95;
+    for (let i = 0; i < 40 && hi > 1 && f(hi) == null; i++) hi *= 0.85;
+    const d = bisect(f, 0, hi, target, true);
+    return d == null ? null : Math.round(d);
+  },
+};

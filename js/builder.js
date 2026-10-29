@@ -126,7 +126,7 @@ function InputsPanel({ input, set }) {
     </div>
 
     <div class="card b-sec">
-      <div class="b-head"><span class="b-no">3</span>Vade ve oran</div>
+      <div class="b-head"><span class="b-no">3</span>Vade</div>
       <div class="b-two">
         <div class="b-ctl">
           <span class="field-label">Taksit sayısı</span>
@@ -138,33 +138,37 @@ function InputsPanel({ input, set }) {
           <div class="caption center">${yearsText(input.months) || ' '}</div>
         </div>
         <div class="b-ctl">
-          <span class="field-label">Aylık vade farkı</span>
-          <div class="b-stepper">
-            <${IconButton} icon="minus" label="Azalt" cls="filled" onClick=${() => set({ rate: Math.max(0, Math.round((input.rate - 0.0001) * 1e6) / 1e6) })} />
-            <button class="bs-rate" onClick=${rateSheet} title="Klavyeyle gir">${percent(input.rate)}</button>
-            <${IconButton} icon="add" label="Artır" cls="filled" onClick=${() => set({ rate: Math.round((input.rate + 0.0001) * 1e6) / 1e6 })} />
-          </div>
-          <div class="caption center">yıllık bileşik ${percent(Finance.annualCompound(effective))}${input.taxOn && !housing ? ' · vergili' : ''}</div>
-        </div>
-      </div>
-      <div class="chips-wrap">${[12, 24, 36, 48, 60, 120].map((m) => html`<${Chip} label=${`${m} ay`} selected=${input.months === m} onClick=${() => set({ months: m })} />`)}</div>
-      <div class="chips-wrap">${[0, 0.0149, 0.0199, 0.0249, 0.0299, 0.0349].map((r) => html`<${Chip} label=${r === 0 ? 'Farksız' : percent(r)} selected=${Math.abs(input.rate - r) < 1e-9} onClick=${() => set({ rate: r })} />`)}</div>
-      <div class="b-grid2">
-        <div class="b-ctl">
           <span class="field-label">Ödemesiz dönem</span>
-          <div class="b-stepper small">
+          <div class="b-stepper">
             <${IconButton} icon="minus" label="Bir ay azalt" cls="filled" onClick=${() => set({ graceMonths: Math.max(0, (input.graceMonths || 0) - 1) })} />
             <span class="grace-val">${input.graceMonths ? `${input.graceMonths} ay` : 'Yok'}</span>
             <${IconButton} icon="add" label="Bir ay artır" cls="filled" onClick=${() => set({ graceMonths: Math.min(60, (input.graceMonths || 0) + 1) })} />
           </div>
+          <div class="caption center">${input.graceMonths ? 'taksitler ötelenir' : 'taksitler hemen başlar'}</div>
         </div>
-        <label class="b-ctl b-date">
-          <span class="field-label">İlk taksit</span>
-          <span class="b-date-val">${dateMid(DateX.plusMonths(input.startDate, first))}<${Icon} name="calendar" size=${16} /></span>
-          <input type="date" value=${DateX.iso(DateX.plusMonths(input.startDate, first))}
-            onChange=${(e) => e.target.value && set({ startDate: DateX.plusMonths(DateX.fromIso(e.target.value), -first) })} />
-        </label>
       </div>
+      <label class="b-ctl b-date row">
+        <span class="field-label">İlk taksit</span>
+        <span class="b-date-val">${dateMid(DateX.plusMonths(input.startDate, first))}<${Icon} name="calendar" size=${16} /></span>
+        <input type="date" value=${DateX.iso(DateX.plusMonths(input.startDate, first))}
+          onChange=${(e) => e.target.value && set({ startDate: DateX.plusMonths(DateX.fromIso(e.target.value), -first) })} />
+      </label>
+      <span class="field-label">Hızlı vade</span>
+      <div class="chips-wrap">${[6, 12, 18, 24, 36, 48, 60, 120].map((m) => html`<${Chip} label=${`${m} ay`} selected=${input.months === m} onClick=${() => set({ months: m })} />`)}</div>
+    </div>
+
+    <div class="card b-sec">
+      <div class="b-head"><span class="b-no">4</span>Aylık vade farkı</div>
+      <div class="b-ctl">
+        <div class="b-stepper">
+          <${IconButton} icon="minus" label="Azalt" cls="filled" onClick=${() => set({ rate: Math.max(0, Math.round((input.rate - 0.0001) * 1e6) / 1e6) })} />
+          <button class="bs-rate" onClick=${rateSheet} title="Klavyeyle gir">${percent(input.rate)}</button>
+          <${IconButton} icon="add" label="Artır" cls="filled" onClick=${() => set({ rate: Math.round((input.rate + 0.0001) * 1e6) / 1e6 })} />
+        </div>
+        <div class="caption center">${input.taxOn && !housing ? `vergili aylık ${percent(effective)} · ` : ''}yıllık basit ${percent(effective * 12)} · bileşik ${percent(Finance.annualCompound(effective))}</div>
+      </div>
+      <span class="field-label">Hızlı oran · ortadaki orana dokun: klavyeyle yaz</span>
+      <div class="chips-wrap">${[0, 0.0099, 0.0149, 0.0199, 0.0249, 0.0299, 0.0349, 0.0399].map((r) => html`<${Chip} label=${r === 0 ? 'Vade farksız' : percent(r)} selected=${Math.abs(input.rate - r) < 1e-9} onClick=${() => set({ rate: r })} />`)}</div>
     </div>`;
 }
 
@@ -183,7 +187,9 @@ function ResultPanel({ plan, a }) {
     const f = months.length ? Math.min(...months) : 1;
     app.sheet(html`<${BlockSheet} from=${f} to=${f + 11} onClose=${app.closeSheet} onDone=${(x, y, amt) => { app.closeSheet(); ops.addBlock(x, y, amt); }} />`);
   };
-  const target = () => app.sheet(html`<${TargetCostSheet} current=${a.costRatio || 0} onClose=${app.closeSheet} onDone=${(pct) => { app.closeSheet(); ops.setTargetCost(pct); }} />`);
+  const target = () => app.sheet(html`<${TargetCostSheet} input=${plan.input} current=${a.costRatio || 0} edited=${!!plan.rows} onClose=${app.closeSheet}
+    onRate=${(r) => { app.closeSheet(); app.updateInput({ ...plan.input, rate: r }); }}
+    onDiscount=${(d) => { app.closeSheet(); app.updateInput({ ...plan.input, discountOn: d > 0, discount: { amount: d, percent: false } }); }} />`);
   return html`
     ${a.schedule.overflow
       ? html`<div class="alert">Peşinat, ara ödemeler ve kilitli satırların bugünkü değeri hedefi ${moneyShort(a.schedule.overflow.excess)} aşıyor. Peşinatı / ara ödemeleri azalt ya da kilitleri aç.</div>`

@@ -1,6 +1,6 @@
 // Pencereler: baz oran, tutar, blok, tek ödeme, satır düzenleme, hedef maliyet, ad, çakışma, şablondan plan, PDF.
 import { html, useState } from '../vendor/preact-htm.js';
-import { Finance, Kind, RowEdits, sortRows, payDate, DateX } from './finance.js';
+import { Finance, Kind, RowEdits, sortRows, payDate, DateX, Solve, valueOf } from './finance.js';
 import { money, moneyShort, percent, dateShort, dayShift, editable } from './format.js';
 import {
   Sheet, SheetTitle, GradHeader, GradientButton, OutlineButton, NumberField, FieldBox, Chip, Segmented,
@@ -112,12 +112,45 @@ export function ConflictSheet({ skip, onDone, onClose }) {
     </${Sheet}>`;
 }
 
-export function TargetCostSheet({ current, onDone, onClose }) {
+/**
+ * Hedef maliyet oranı: o maliyete denk gelen aylık vade farkını ya da (oran aynı kalarak) gereken ek nakit indirimi
+ * bulur; seçilen girdilere yazılır, plan girdilerden yeniden oluşur.
+ */
+export function TargetCostSheet({ input, current, edited, onRate, onDiscount, onClose }) {
+  const app = useApp();
+  const { baseRate, taxes } = app.settings;
   const [pct, setPct] = useState(Math.round(current * 10000) / 100);
+  const target = pct == null ? null : pct / 100;
+  const rate = target == null ? null : Solve.rateForCost(input, target, baseRate, taxes);
+  const total = target == null ? null : Solve.discountForCost(input, target, baseRate, taxes);
+  const nowDiscount = input.discountOn ? Math.round(valueOf(input.discount, input.listPrice)) : 0;
+  const extra = total == null ? null : total - nowDiscount;
+  const zeroCost = Solve.costOf({ ...input, rate: 0 }, baseRate, taxes);
   return html`
-    <${Sheet} onClose=${onClose} footer=${html`<${GradientButton} cls="full" disabled=${pct == null} onClick=${() => onDone(pct)}>Taksitleri yeniden hesapla</${GradientButton}>`}>
-      <${SheetTitle} caption=${`Kilitsiz taksitler bu maliyete göre yeniden hesaplanır; kilitli satırlar değişmez. Şu an ${percent(current)}.`}>Hedef maliyet oranı</${SheetTitle}>
-      <${FieldBox} label="Maliyet oranı (%)"><span class="unit">%</span><${NumberField} value=${pct} autoFocus onChange=${setPct} onEnter=${() => pct != null && onDone(pct)} /></${FieldBox}>
+    <${Sheet} onClose=${onClose}>
+      <${SheetTitle} caption=${`Şu an ${percent(current)}. Hedefi yaz; ona denk gelen vade farkını ya da nakit indirimi seç.`}>Hedef maliyet oranı</${SheetTitle}>
+      <${FieldBox} label="Hedef maliyet oranı"><span class="unit">%</span><${NumberField} value=${pct} autoFocus onChange=${setPct} /></${FieldBox}>
+      <div class="solve-card">
+        <div class="sc-head">Vade farkıyla</div>
+        ${rate != null ? html`
+          <div class="sc-val">${percent(input.rate)} <span>→</span> <strong>${percent(rate)}</strong></div>
+          <p class="caption">Aylık vade farkı ${percent(rate)} olursa maliyet ${pct != null ? '%' + editable(pct) : ''} olur.</p>
+          <${GradientButton} cls="full" onClick=${() => onRate(rate)}>Vade farkını ${percent(rate)} yap</${GradientButton}>`
+        : html`<p class="caption">${target != null && zeroCost != null && target > zeroCost
+            ? `Vade farksız bile maliyet ${percent(zeroCost)}; bu hedef için nakit indirim gerekir.`
+            : 'Bu hedefe vade farkıyla ulaşılamıyor.'}</p>`}
+      </div>
+      <div class="solve-card">
+        <div class="sc-head">Nakit indirimle (vade farkı ${percent(input.rate)} kalır)</div>
+        ${extra != null ? html`
+          <div class="sc-val">${extra >= 0 ? 'Ek indirim' : 'İndirimi azalt'} <strong>${moneyShort(Math.abs(extra))}</strong></div>
+          <p class="caption">Toplam peşin indirim ${moneyShort(total)} · liste fiyatının ${percent(total / input.listPrice)}'i${nowDiscount > 0 ? ` (şu an ${moneyShort(nowDiscount)})` : ''}</p>
+          <${OutlineButton} cls="full" onClick=${() => onDiscount(total)}>İndirimi ${moneyShort(total)} yap</${OutlineButton}>`
+        : html`<p class="caption">${target != null && target < current && nowDiscount === 0
+            ? 'Maliyeti düşürmek için indirim değil, daha yüksek vade farkı gerekir.'
+            : 'Bu hedefe mevcut oranla nakit indirimle ulaşılamıyor.'}</p>`}
+      </div>
+      ${edited && html`<p class="caption amber">Tablodaki elle düzenlemeler sıfırlanır; plan girdilerden yeniden oluşur.</p>`}
     </${Sheet}>`;
 }
 
