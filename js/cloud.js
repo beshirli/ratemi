@@ -23,8 +23,8 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 const TR = { ç: 'c', ğ: 'g', ı: 'i', i̇: 'i', ö: 'o', ş: 's', ü: 'u' };
-/** "Ahmet Yılmaz" → "ahmetyilmaz": küçük harf, Türkçe harfler sadeleşir, yalnız a-z 0-9 . _ - kalır. */
-export const cleanUsername = (s) => String(s || '').toLocaleLowerCase('tr').replace(/[çğıöşü]/g, (c) => TR[c]).replace(/[^a-z0-9._-]/g, '');
+/** "Ahmet Yılmaz" → "ahmetyilmaz" (e-posta yazılırsa @ öncesi): küçük harf, Türkçe harfler sadeleşir, yalnız a-z 0-9 . _ - kalır. */
+export const cleanUsername = (s) => String(s || '').split('@')[0].toLocaleLowerCase('tr').replace(/[çğıöşü]/g, (c) => TR[c]).replace(/[^a-z0-9._-]/g, '');
 export const validUsername = (u) => /^[a-z0-9][a-z0-9._-]{2,23}$/.test(u);
 
 const emailOf = (username, n) => `${username}${n ? '.' + n : ''}@${DOMAIN}`;
@@ -51,17 +51,26 @@ async function accountOf(user) {
 }
 
 /** Oturum değişince cb({ username, name, role, uid } | null) çağrılır. */
+let sessionCb = null;
+// Kurulum ya da giriş sürerken hesap kaydı henüz yokken oturum kapatılmasın (yarım kalan yazmalar takılır).
+let busy = false;
+
+async function emit(user) {
+  if (!sessionCb) return;
+  if (!user) return sessionCb(null);
+  try {
+    const a = await accountOf(user);
+    if (!a && busy) return;
+    if (!a) await signOut(auth);
+    sessionCb(a);
+  } catch (e) {
+    sessionCb({ error: e });
+  }
+}
+
 export function watchSession(cb) {
-  return onAuthStateChanged(auth, async (user) => {
-    if (!user) return cb(null);
-    try {
-      const a = await accountOf(user);
-      if (!a) await signOut(auth);
-      cb(a);
-    } catch (e) {
-      cb({ error: e });
-    }
-  });
+  sessionCb = cb;
+  return onAuthStateChanged(auth, emit);
 }
 
 /** Yönetici hesabı kuruldu mu (ilk açılışta "Yönetici hesabını oluştur" gösterilir). */
@@ -70,24 +79,44 @@ export async function adminExists() {
 }
 
 export async function setupAdmin(username, name, password) {
-  const cred = await createUserWithEmailAndPassword(auth, emailOf(username), password);
-  const uid = cred.user.uid;
-  await setDoc(doc(db, 'config', 'admin'), { uid, username, createdAt: serverTimestamp() });
-  await setDoc(doc(db, 'logins', username), { email: emailOf(username) });
-  await setDoc(doc(db, 'accounts', username), { uid, name, role: 'admin', active: true, createdAt: serverTimestamp() });
-  await track('login', {}, { username, uid });
+  busy = true;
+  try {
+    let cred;
+    try {
+      cred = await createUserWithEmailAndPassword(auth, emailOf(username), password);
+    } catch (e) {
+      // Önceki denemede giriş hesabı açılıp kayıt yarım kaldıysa aynı şifreyle devam edilir.
+      if (e.code !== 'auth/email-already-in-use') throw e;
+      cred = await signInWithEmailAndPassword(auth, emailOf(username), password);
+    }
+    const uid = cred.user.uid;
+    await setDoc(doc(db, 'config', 'admin'), { uid, username, createdAt: serverTimestamp() });
+    await setDoc(doc(db, 'logins', username), { email: emailOf(username) });
+    await setDoc(doc(db, 'accounts', username), { uid, name, role: 'admin', active: true, createdAt: serverTimestamp() });
+    await track('login', {}, { username, uid });
+  } finally {
+    busy = false;
+  }
+  await emit(auth.currentUser);
 }
 
 export async function login(username, password) {
   const l = await getDoc(doc(db, 'logins', username));
   if (!l.exists()) throw Object.assign(new Error('Kullanıcı adı ya da şifre hatalı.'), { code: 'auth/user-not-found' });
-  const cred = await signInWithEmailAndPassword(auth, l.data().email, password);
-  const a = await accountOf(cred.user);
-  if (!a) {
-    await signOut(auth);
-    throw new Error('Bu kullanıcı durdurulmuş. Uygulama sahibine danış.');
+  busy = true;
+  let a;
+  try {
+    const cred = await signInWithEmailAndPassword(auth, l.data().email, password);
+    a = await accountOf(cred.user);
+    if (!a) {
+      await signOut(auth);
+      throw new Error('Bu kullanıcı durdurulmuş. Uygulama sahibine danış.');
+    }
+    await track('login', {}, a);
+  } finally {
+    busy = false;
   }
-  await track('login', {}, a);
+  await emit(auth.currentUser);
   return a;
 }
 
