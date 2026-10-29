@@ -18,7 +18,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    fetch(e.request)
+    // no-cache: tarayıcının HTTP önbelleği yerine her seferinde sunucuya sorar (değişmediyse hızlı 304).
+    fetch(e.request, { cache: 'no-cache' })
       .then((res) => {
         if (res.ok && new URL(e.request.url).origin === location.origin) {
           const copy = res.clone();
