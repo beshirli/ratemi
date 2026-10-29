@@ -3,10 +3,11 @@ import { html, render, useState, useEffect, useRef, useMemo } from '../vendor/pr
 import { Finance, Kind, Schedules, analyze, RowEdits, Offers, sortRows, pay, DateX } from './finance.js';
 import { moneyShort, percent, editable, dateShort } from './format.js';
 import { AppCtx, Icon, Logo } from './ui.js';
-import { HomeScreen, TemplatesScreen, WizardScreen, PlanScreen, OfferScreen, ConverterScreen, SettingsScreen, BaseRatePill } from './screens.js';
+import { HomeScreen, TemplatesScreen, OfferScreen, ConverterScreen, SettingsScreen, BaseRatePill } from './screens.js';
+import { PlanBuilderScreen } from './builder.js';
 import { RateSheet, AmountSheet, NameSheet } from './sheets.js';
 import { PrintDoc } from './print.js';
-import { loadSettings, saveSettings, loadRecords, saveRecords, newId, backupJson, parseBackup } from './store.js';
+import { loadSettings, saveSettings, loadRecords, saveRecords, newId, backupJson, parseBackup, loadDraft, saveDraft } from './store.js';
 
 const emptyOffer = () => ({ cashPrice: 0, down: 0, blocks: [], singles: [] });
 
@@ -19,8 +20,8 @@ function App() {
   const [settings, setSettings] = useState(loadSettings);
   const [records, setRecords] = useState(loadRecords);
   const [stack, setStack] = useState(['home']);
-  const [step, setStepRaw] = useState(0);
   const [plan, setPlan] = useState(null);
+  const [dirty, setDirty] = useState(false);
   const [offer, setOffer] = useState(null);
   const [conversion, setConversion] = useState(null);
   const [sheetEl, setSheetEl] = useState(null);
@@ -30,7 +31,7 @@ function App() {
   const undoStack = useRef([]);
   const [canUndo, setCanUndo] = useState(false);
   const state = useRef({});
-  state.current = { stack, step, sheetEl, plan };
+  state.current = { stack, sheetEl, plan, dirty };
 
   const screen = stack[stack.length - 1];
   const taxes = settings.taxes;
@@ -47,7 +48,7 @@ function App() {
   const upsert = (rec) => setRecords((all) => {
     const i = all.findIndex((r) => r.id === rec.id);
     const next = { ...rec, updatedAt: Date.now() };
-    return i < 0 ? [next, ...all] : all.map((r, j) => (j === i ? { ...r, ...next } : r));
+    return i < 0 ? [next, ...all] : all.map((r, j) => (j === i ? { ...r, ...next, deletedAt: next.deletedAt } : r));
   });
 
   // --- Gezinme: her ileri adım tarayıcı geçmişine yazılır; telefonun geri tuşu da çalışır. ---
@@ -56,12 +57,10 @@ function App() {
   const internalBack = () => {
     const s = state.current;
     if (s.sheetEl) { setSheetEl(null); return; }
-    if (s.stack[s.stack.length - 1] === 'wizard' && s.step > 0) { setStepRaw(s.step - 1); return; }
     if (s.stack.length > 1) {
       const next = s.stack.slice(0, -1);
       setStack(next);
       const top = next[next.length - 1];
-      if (top === 'home' || top === 'templates') { setPlan(null); undoStack.current = []; setCanUndo(false); }
     }
   };
 
@@ -72,7 +71,7 @@ function App() {
     return () => removeEventListener('popstate', onPop);
   }, []);
 
-  useEffect(() => { document.querySelector('.main')?.scrollTo(0, 0); scrollTo(0, 0); }, [screen, step]);
+  useEffect(() => { document.querySelector('.main')?.scrollTo(0, 0); scrollTo(0, 0); }, [screen]);
 
   const push = (name) => {
     pushHistory();
@@ -85,7 +84,6 @@ function App() {
   const goTab = (tab) => {
     setSheetEl(null);
     setStack(tab === 'templates' ? ['home', 'templates'] : ['home']);
-    setPlan(null); undoStack.current = []; setCanUndo(false);
     pushHistory();
   };
   const go = (name) => (name === 'home' || name === 'templates' ? goTab(name) : push(name));
@@ -99,60 +97,65 @@ function App() {
     setTimeout(() => setToast((t) => (t && t.id === id ? null : t)), 6000);
   };
 
-  // --- Ödeme planı ---
+  // --- Ödeme planı: tek sayfa, kayıt isteğe bağlı. Çalışılan plan taslak olarak saklanır (sayfa yenilense de kaybolmaz). ---
   const analyzePlan = (p) => analyze(p, settings.baseRate, taxes);
 
-  const newPlan = () => {
-    const input = {
+  const freshPlan = () => ({
+    id: 0, name: '', rows: null, balance: null,
+    input: {
       loanType: 'HOUSING', taxOn: false, listPrice: 0,
       discountOn: settings.discountOn, discount: { amount: settings.discountOn ? settings.discountPercent : 0, percent: true },
       down: { amount: 0, percent: true }, interims: [], skipOnInterim: false,
       months: 24, rate: 0.02, startDate: DateX.today(), graceMonths: 0,
-    };
-    setPlan({ id: 0, name: '', input, rows: null, balance: null });
+    },
+  });
+
+  const loadPlan = (p, isDirty) => {
+    setPlan(p); setDirty(isDirty);
     undoStack.current = []; setCanUndo(false);
-    setStepRaw(0);
-    push('wizard');
+    saveDraft({ plan: p, dirty: isDirty });
   };
 
-  /** Açık plan değişti: kayıtlıysa adı güncellenip saklanır. */
+  /** "+": kaydedilmemiş bir deneme varsa ona döner, yoksa boş plan. */
+  const newPlan = () => {
+    const d = loadDraft();
+    if (d && d.dirty && d.plan && d.plan.input.listPrice > 0) loadPlan(d.plan, true);
+    else loadPlan(freshPlan(), false);
+    push('plan');
+  };
+
+  const resetPlan = () => {
+    const p = state.current.plan;
+    if (state.current.dirty && p && p.input.listPrice > 0 && !confirm('Kaydedilmemiş plan silinip boş plan açılsın mı?')) return;
+    loadPlan(freshPlan(), false);
+  };
+
   const change = (p) => {
-    const named = p.id ? { ...p, name: autoName(p.input) } : p;
-    setPlan(named);
-    if (named.id) upsert({ id: named.id, type: 'SCHEDULE', name: named.name, data: { input: named.input, rows: named.rows, balance: named.balance } });
-  };
-
-  const insert = (p) => {
-    const id = newId();
-    change({ ...p, id });
+    setPlan(p); setDirty(true);
+    saveDraft({ plan: p, dirty: true });
   };
 
   const updateInput = (input) => {
     const p = state.current.plan;
     if (!p) return;
-    if (p.rows) showToast('Girdiler değişti; tablo yeniden oluşturuldu.');
+    if (p.rows) showToast('Girdiler değişti; tablodaki elle düzenlemeler sıfırlandı.');
     change({ ...p, input, rows: null, balance: null });
   };
 
-  const createPlan = () => {
+  /** Kaydet: asNew ise yeni kayıt (Farklı kaydet), değilse açık kaydın üstüne. */
+  const savePlan = (name, asNew) => {
     const p = state.current.plan;
-    // Akıştan plana: akış geçmişteki yerini plana bırakır.
-    setStack((st) => [...st.filter((x) => x !== 'wizard' && x !== 'plan'), 'plan']);
-    pushHistory();
-    if (!p.id) insert(p);
+    const id = asNew || !p.id ? newId() : p.id;
+    const saved = { ...p, id, name: name || autoName(p.input) };
+    upsert({ id, type: 'SCHEDULE', name: saved.name, data: { input: saved.input, rows: saved.rows, balance: saved.balance } });
+    setPlan(saved); setDirty(false);
+    saveDraft({ plan: saved, dirty: false });
+    showToast(`“${saved.name}” kaydedildi.`);
   };
 
   const openPlan = (rec) => {
-    setPlan({ id: rec.id, name: rec.name, ...rec.data });
-    undoStack.current = []; setCanUndo(false);
+    loadPlan({ id: rec.id, name: rec.name, ...rec.data }, false);
     push('plan');
-  };
-
-  const editInputs = () => { setStepRaw(0); push('wizard'); };
-
-  const setStep = (n) => {
-    const s = state.current.step;
-    if (n > s) { pushHistory(); setStepRaw(n); } else if (n < s) history.back();
   };
 
   const editRows = (edit) => {
@@ -212,7 +215,7 @@ function App() {
       const p = Schedules.fromTemplate(rec.data, price, DateX.today(), settings.baseRate, taxes);
       undoStack.current = []; setCanUndo(false);
       setStack((st) => [...st.filter((x) => x === 'home' || x === 'templates'), 'plan']);
-      insert(p);
+      loadPlan(p, true);
     }} />`);
   const renameTemplate = (rec) => sheet(html`<${NameSheet} title="Şablonun adı" value=${rec.name} button="Tamam" onClose=${closeSheet}
     onDone=${(name) => { closeSheet(); upsert({ ...rec, name }); }} />`);
@@ -309,7 +312,7 @@ function App() {
   }, [printDoc]);
 
   const app = {
-    settings, updateSettings, records, go, back, screen, step, setStep, plan, newPlan, updateInput, createPlan, editInputs,
+    settings, updateSettings, records, go, back, screen, plan, dirty, newPlan, resetPlan, updateInput, savePlan, autoName,
     analyzePlan, planOps, templateCost, useTemplate, renameTemplate, deleteRecord, restoreRecord, purgeRecord, emptyTrash,
     offer, newOffer, updateOffer, conversion, newConversion, updateConversion, openRecord, sheet, closeSheet, editBaseRate,
     exportBackup, importBackup, print, shareFields, setShareFields,
@@ -317,17 +320,17 @@ function App() {
 
   const Screen = {
     home: HomeScreen, templates: TemplatesScreen, settings: SettingsScreen,
-    wizard: plan ? WizardScreen : HomeScreen, plan: plan ? PlanScreen : HomeScreen,
+    plan: plan ? PlanBuilderScreen : HomeScreen,
     offer: offer ? OfferScreen : HomeScreen, converter: conversion ? ConverterScreen : HomeScreen,
   }[screen] || HomeScreen;
   const tab = stack.includes('templates') ? 'templates' : screen === 'settings' ? 'settings' : 'home';
 
   return html`
     <${AppCtx.Provider} value=${app}>
-      <div class=${'shell' + (screen === 'wizard' ? ' in-wizard' : '')}>
+      <div class=${'shell' + (screen === 'plan' ? ' in-plan' : '')}>
         <${Sidebar} tab=${tab} screen=${screen} />
         <main class="main"><${Screen} /></main>
-        ${screen !== 'wizard' && html`<${BottomBar} tab=${tab} />`}
+        <${BottomBar} tab=${tab} />
       </div>
       ${sheetEl}
       ${toast && html`<div class="toast" key=${toast.id}><span>${toast.text}</span>${toast.undo && html`<button onClick=${() => { toast.undo(); setToast(null); }}>Geri al</button>`}</div>`}
@@ -347,7 +350,7 @@ function Sidebar({ tab, screen }) {
       <${Item} icon="home" label="Ana sayfa" active=${tab === 'home' && screen === 'home'} onClick=${() => app.go('home')} />
       <${Item} icon="bookmark" label="Şablonlar" active=${tab === 'templates'} onClick=${() => app.go('templates')} />
       <div class="sb-sep">Araçlar</div>
-      <${Item} icon="table" label="Ödeme planı" active=${screen === 'plan' || screen === 'wizard'} onClick=${() => (app.plan ? app.go(app.plan.id ? 'plan' : 'wizard') : app.newPlan())} />
+      <${Item} icon="table" label="Ödeme planı" active=${screen === 'plan'} onClick=${app.newPlan} />
       <${Item} icon="trend" label="Teklifin gerçek oranı" active=${screen === 'offer'} onClick=${app.newOffer} />
       <${Item} icon="clock" label="Değer çevirici" active=${screen === 'converter'} onClick=${app.newConversion} />
       <div class="grow" />

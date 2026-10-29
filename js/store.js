@@ -45,6 +45,11 @@ export function loadRecords() {
 
 export const saveRecords = (records) => write(KEY_RECORDS, records);
 
+const KEY_DRAFT = 'ratemi.draft.v1';
+/** Ödeme planı sayfasında çalışılan plan: { plan, dirty }. */
+export const loadDraft = () => read(KEY_DRAFT, null);
+export const saveDraft = (d) => write(KEY_DRAFT, d);
+
 export const newId = () => Date.now() * 1000 + Math.floor(Math.random() * 1000);
 
 /** Yedek dosyası: bütün kayıtlar ve ayarlar. */
