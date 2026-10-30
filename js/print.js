@@ -1,6 +1,6 @@
 // PDF çıktıları: tarayıcının yazdırma penceresinde "PDF olarak kaydet". Plan mavi → turkuaz, teklif yeşil, çevirici lila.
 import { html } from '../vendor/preact-htm.js';
-import { Kind, payDate, Offers, Conversion, ValueConverter, Finance, period, DateX } from './finance.js';
+import { Kind, payDate, Offers, Conversion, ValueConverter, Finance, period, DateX, isCash } from './finance.js';
 import { money, moneyShort, percent, dateMid, editable } from './format.js';
 
 const today = () => dateMid(DateX.today());
@@ -21,9 +21,36 @@ function Fields({ f }) {
 const Box = ({ label, value, tone }) => html`<div class=${'pr-box ' + (tone || '')}><span>${label}</span><strong>${value}</strong></div>`;
 
 export function PrintDoc({ doc, rep }) {
-  if (doc.kind === 'plan') return html`<${PlanDoc} ...${doc} rep=${rep} />`;
+  if (doc.kind === 'plan') return isCash(doc.plan.input) ? html`<${CashDoc} ...${doc} rep=${rep} />` : html`<${PlanDoc} ...${doc} rep=${rep} />`;
   if (doc.kind === 'offer') return html`<${OfferDoc} ...${doc} rep=${rep} />`;
   return html`<${ConvDoc} ...${doc} rep=${rep} />`;
+}
+
+/** Peşin satış PDF'i: liste fiyatı, iskonto, peşin satış fiyatı, ödeme günü; tek satırlık tablo. */
+function CashDoc({ plan, a, fields, rep }) {
+  const showCost = fields.analysis !== false;
+  const i = plan.input;
+  const discount = i.listPrice - a.basePrice;
+  return html`
+    <div class="pr-page">
+      <${Head} title="Peşin Satış" grad="logo" rep=${rep} />
+      <${Fields} f=${fields} />
+      <div class="pr-boxes">
+        <${Box} label="Liste fiyatı" value=${moneyShort(a.listPrice)} tone="navy" />
+        ${discount > 0.5 && html`<${Box} label="Peşin iskonto" value=${moneyShort(discount)} tone="teal" />`}
+        <${Box} label="Peşin satış fiyatı" value=${moneyShort(a.basePrice)} tone="blue" />
+        <${Box} label="Ödeme günü" value=${dateMid(i.startDate)} tone="navy" />
+        <${Box} label="Vade" value="Yok (peşin)" tone="blue" />
+        ${showCost && html`<div class="pr-box cost grad-logo"><span>Maliyet oranı</span><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong><em>Baz oran ${percent(a.baseRate)} · NBD ${moneyShort(a.pvAtBase)}</em></div>`}
+      </div>
+      <table class="pr-table">
+        <thead class="grad-logo"><tr><th>Sıra</th><th>Tarih</th><th class="num">Tutar</th>${showCost && html`<th class="num">NBD</th>`}</tr></thead>
+        <tbody>
+          ${a.rows.map((p) => html`<tr class="down"><td>Peşin ödeme</td><td>${dateMid(payDate(p, i.startDate))}</td><td class="num">${money(p.amount)}</td>${showCost && html`<td class="num">${moneyShort(a.pv(p))}</td>`}</tr>`)}
+        </tbody>
+        <tfoot><tr><td>Toplam</td><td /><td class="num">${money(a.total)}</td>${showCost && html`<td class="num">${moneyShort(a.pvAtBase)}</td>`}</tr></tfoot>
+      </table>
+    </div>`;
 }
 
 function PlanDoc({ plan, a, fields, rep }) {

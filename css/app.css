@@ -398,6 +398,9 @@ body.modal-open { overflow: hidden; }
 .step-summary strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .alert.small { font-size: 13px; padding: 10px 12px; }
 .add-interim { height: 46px; }
+.cash-note { display: flex; gap: 10px; align-items: flex-start; background: var(--tint-soft); color: var(--tint); border-radius: 14px; padding: 12px 14px; }
+.cash-note strong { color: var(--label); font-size: 15px; }
+.cost-card.static { cursor: default; }
 /* Masaüstü: tek sayfa, solda girdiler (kendi kaydırması), sağda plan. */
 .content.builder-wide { max-width: 1400px; display: grid; grid-template-columns: 440px minmax(0, 1fr); align-items: start; gap: 24px; padding-bottom: 40px; }
 .builder-wide .b-inputs { position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; display: flex; flex-direction: column; gap: 12px;

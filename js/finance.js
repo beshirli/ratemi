@@ -112,6 +112,8 @@ const irrResult = (monthly, steps) => ({ monthly, steps, annual: Finance.annualC
 export const valueOf = (v, base) => (v.percent ? base * v.amount / 100 : v.amount);
 export const basePrice = (i) => i.listPrice - (i.discountOn ? valueOf(i.discount, i.listPrice) : 0);
 export const firstInstallmentMonth = (i) => 1 + (i.graceMonths || 0);
+/** Peşin satış: peşinat kampanyalı fiyatın tamamı (0,50 TL payla); vade, vade farkı ve ara ödeme yok, plan tek satır. */
+export const isCash = (i) => i.listPrice > 0 && valueOf(i.down, basePrice(i)) >= basePrice(i) - 0.5;
 
 export const DefaultTaxes = {
   PERSONAL: { kkdf: 0.15, bsmv: 0.15 },
@@ -132,13 +134,15 @@ export const Schedules = {
   },
 
   build(plan, taxes) {
-    if (!plan.rows) return Schedules.generate(plan.input, taxes);
+    if (isCash(plan.input) || !plan.rows) return Schedules.generate(plan.input, taxes);
     if (!plan.balance) return balanced(plan.rows, Schedules.rate(plan.input, taxes), basePrice(plan.input));
     return balanced(plan.rows, plan.balance.rate, plan.balance.nbd);
   },
 
   generate(input, taxes) {
     const base = basePrice(input);
+    // Peşin satış: tek satır, kampanyalı fiyatın tamamı peşinat gününde.
+    if (isCash(input)) return { rows: [pay(1, 0, Finance.roundKurus(base), Kind.DOWN, { locked: true })], rate: Schedules.rate(input, taxes), target: base, overflow: null };
     let id = 1;
     const rows = [];
     const interimMonths = new Set(input.interims.map((x) => x.month));

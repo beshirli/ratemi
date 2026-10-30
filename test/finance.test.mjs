@@ -1,5 +1,5 @@
 // Android FinanceTest'teki örnek rakamlar: node test/finance.test.mjs
-import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice, Solve } from '../js/finance.js';
+import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice, Solve, isCash } from '../js/finance.js';
 import { parseNumber } from '../js/format.js';
 let fails = 0;
 const eq = (name, exp, got, tol = 1e-9) => { const ok = Math.abs(exp - got) <= tol; if (!ok) fails++; console.log(`${ok ? 'OK  ' : 'FAIL'} ${name}: ${got} (beklenen ${exp})`); };
@@ -45,5 +45,13 @@ eq('hedef = mevcut → aynı oran', 0.02, Solve.rateForCost(sale, Solve.costOf(s
 const d18 = Solve.discountForCost(sale, 0.18, 0.0299, taxes);
 eq('hedef %18 → indirimle maliyet', 0.18, Solve.costOf({ ...sale, discountOn: true, discount: { amount: d18, percent: false } }, 0.0299, taxes), 1e-5);
 eq('ulaşılamayan hedef', 1, Solve.rateForCost(sale, 0.9, 0.0299, taxes) === null ? 1 : 0);
+// Peşin satış: %100 peşinat → tek satır, kampanyalı fiyat, maliyet = iskonto oranı.
+const cash = { ...sale, down: { amount: 100, percent: true } };
+eq('peşin satış tanınır', 1, isCash(cash) ? 1 : 0);
+const cashA = analyze({ input: cash, rows: null, balance: null }, 0.0299, taxes);
+eq('peşin satış tek satır', 1, cashA.rows.length);
+eq('peşin satış tutarı', basePrice(cash), cashA.rows[0].amount, 0.001);
+eq('peşin satış maliyeti = iskonto', 0.05, cashA.costRatio, 1e-9);
+eq('kampanyalı fiyat kadar TL peşinat da peşin', 1, isCash({ ...sale, down: { amount: basePrice(cash), percent: false } }) ? 1 : 0);
 console.log(fails ? `${fails} HATA` : 'Tüm testler geçti');
 process.exit(fails ? 1 : 0);

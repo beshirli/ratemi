@@ -3,7 +3,7 @@
 // Masaüstünde (WIDE ve üstü) tek sayfa: solda dört girdi bölümü alt alta, sağda anında oluşan plan.
 // Her değişiklik planı anında yeniden hesaplar; kayıt isteğe bağlı ("Kaydet"), şablon ayrı düğmeyle.
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX } from './finance.js';
+import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash } from './finance.js';
 import { money, moneyShort, percent, dateMid, dayShift, editable } from './format.js';
 import {
   Icon, IconButton, GradientButton, OutlineButton, TextAction, Chip, Segmented, SwitchRow, Badge,
@@ -47,9 +47,14 @@ export function PlanBuilderScreen() {
   const share = () => app.sheet(html`<${ShareSheet} kind="plan" onClose=${app.closeSheet} onPrint=${(f) => { app.closeSheet(); app.print({ kind: 'plan', plan, a, fields: f }); }} />`);
   const status = !plan.id ? 'Kaydedilmedi' : app.dirty ? 'Kaydedilmemiş değişiklik var' : 'Kayıtlı';
 
-  const step = app.planStep;
-  const goStep = app.setPlanStep;
   const wide = useWide();
+  // Peşin satışta vade ve oran adımları yok: Ürün → Peşinat → Plan.
+  const cash = isCash(input);
+  const visible = cash ? [0, 1, 4] : [0, 1, 2, 3, 4];
+  const step = cash && (app.planStep === 2 || app.planStep === 3) ? 4 : app.planStep;
+  const goStep = app.setPlanStep;
+  const at = Math.max(0, visible.indexOf(step));
+  const next = visible[at + 1] ?? 4;
 
   // Plan bölümü (5. adım ya da masaüstünde sağ sütun).
   const result = !ready ? html`
@@ -78,7 +83,7 @@ export function PlanBuilderScreen() {
         </${TopBar}>
         <div class="content builder-wide">
           <section class="b-inputs">
-            ${[0, 1, 2, 3].map((i) => html`<${InputsPanel} key=${i} input=${input} set=${set} step=${i} number=${i + 1} />`)}
+            ${(cash ? [0, 1] : [0, 1, 2, 3]).map((i) => html`<${InputsPanel} key=${i} input=${input} set=${set} step=${i} number=${i + 1} />`)}
           </section>
           <section class="b-result">${result}</section>
         </div>
@@ -92,9 +97,9 @@ export function PlanBuilderScreen() {
         <${IconButton} icon="restore" label="Yeni plan (sıfırla)" onClick=${app.resetPlan} />
       </${TopBar}>
       <div class="step-tabs">
-        ${STEPS.map((name, i) => html`
+        ${visible.map((i, pos) => html`
           <button key=${i} class=${'st-tab' + (i === step ? ' on' : i < step ? ' done' : '')} disabled=${i > 0 && !ready} onClick=${() => i !== step && goStep(i)}>
-            <span class="st-no">${i < step ? html`<${Icon} name="check" size=${14} />` : i + 1}</span><span class="st-name">${name}</span>
+            <span class="st-no">${i < step ? html`<${Icon} name="check" size=${14} />` : pos + 1}</span><span class="st-name">${STEPS[i]}</span>
           </button>`)}
       </div>
       <div class="content builder">
@@ -103,14 +108,19 @@ export function PlanBuilderScreen() {
           <div class="step-footer">
             ${ready && (a.schedule.overflow
               ? html`<div class="alert small">Peşinat ve ara ödemelerin bugünkü değeri hedefi ${moneyShort(a.schedule.overflow.excess)} aşıyor.</div>`
+              : cash ? html`<div class="step-summary">
+                  <span><small>Peşin satış</small><strong>${moneyShort(basePrice(input))}</strong></span>
+                  <span><small>Maliyet</small><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong></span>
+                  <span><small>Vade</small><strong>Yok</strong></span>
+                </div>`
               : html`<div class="step-summary">
                   <span><small>Maliyet</small><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong></span>
                   <span><small>${a.installmentCount} × taksit</small><strong>${a.installment != null ? moneyShort(a.installment) : '—'}</strong></span>
                   <span><small>Toplam</small><strong>${moneyShort(a.total)}</strong></span>
                 </div>`)}
             <div class="btn-row">
-              ${step > 0 && html`<${OutlineButton} icon="back" onClick=${() => goStep(step - 1)}>Geri</${OutlineButton}>`}
-              <${GradientButton} cls="grow" trailing="forward" disabled=${!ready} onClick=${() => goStep(step + 1)}>${step === 3 ? 'Planı göster' : 'İleri'}</${GradientButton}>
+              ${at > 0 && html`<${OutlineButton} icon="back" onClick=${() => goStep(visible[at - 1])}>Geri</${OutlineButton}>`}
+              <${GradientButton} cls="grow" trailing="forward" disabled=${!ready} onClick=${() => goStep(next)}>${next === 4 ? 'Planı göster' : 'İleri'}</${GradientButton}>
             </div>
           </div>`
         : result}
@@ -153,6 +163,8 @@ function InputsPanel({ input, set, step, number }) {
     <div class="card b-sec">
       <div class="b-head">${no}Peşinat ve ara ödemeler<span class="caption grow right">${input.discountOn ? 'kampanyalı fiyatın' : 'fiyatın'}</span></div>
       <${AmountPercentFields} value=${input.down} base=${base} onChange=${(v) => set({ down: v })} />
+      ${isCash(input) ? html`
+      <div class="cash-note"><${Icon} name="check" size=${20} /><div><strong>Peşin satış</strong><p class="caption">Kampanyalı fiyatın tamamı peşin ödenir; vade, vade farkı ve ara ödeme yok.</p></div></div>` : html`
       ${input.interims.length > 0 && html`<div class="interim-head"><span>Ay</span><span>Oran</span><span>Tutar</span><span /></div>`}
       ${input.interims.map((x, i) => {
         const amount = valueOf(x.value, base);
@@ -171,7 +183,7 @@ function InputsPanel({ input, set, step, number }) {
         <div class="b-inline">
           <span class="caption">Ara ödeme ayında</span>
           <${Segmented} options=${['Taksit de ödenir', 'Taksit pas geçilir']} index=${input.skipOnInterim ? 1 : 0} onChange=${(i) => set({ skipOnInterim: i === 1 })} />
-        </div>`}
+        </div>`}`}
     </div>`,
 
     () => html`
@@ -230,6 +242,7 @@ function ResultPanel({ plan, a }) {
   const ops = app.planOps;
   const rows = a.rows;
   const start = plan.input.startDate;
+  if (isCash(plan.input)) return html`<${CashPanel} plan=${plan} a=${a} />`;
   const editRow = (p) => app.sheet(html`<${RowEditSheet} p=${p} rows=${rows} start=${start} rate=${a.schedule.rate} target=${a.schedule.target} onClose=${app.closeSheet}
     onApply=${(amount, shift, locked, scope) => { app.closeSheet(); ops.editRow(p.id, amount, shift, locked, scope); }}
     onDelete=${() => { app.closeSheet(); ops.deleteRow(p.id); }} />`);
@@ -254,6 +267,30 @@ function ResultPanel({ plan, a }) {
     <div class="ptable">
       <div class="pt-head"><span class="c-no">Sıra</span><span class="c-date">Tarih</span><span class="c-amt">Tutar</span><span class="c-pv">NBD</span><span class="c-lock" /></div>
       ${rows.map((p) => html`<${TableRow} key=${p.id} p=${p} start=${start} pv=${a.pv(p)} onClick=${() => editRow(p)} onLock=${() => ops.toggleLock(p.id)} />`)}
+      <div class="pt-total"><span class="c-no">Toplam</span><span class="c-date" /><span class="c-amt">${money(a.total)}</span><span class="c-pv">${moneyShort(a.pvAtBase)}</span><span class="c-lock" /></div>
+    </div>`;
+}
+
+/** Peşin satış: ödenecek tutar kartı ve tek satırlık tablo. */
+function CashPanel({ plan, a }) {
+  const i = plan.input;
+  const discount = i.listPrice - basePrice(i);
+  const facts = [['Liste fiyatı', moneyShort(i.listPrice)]];
+  if (discount > 0.5) facts.push(['Peşin iskonto', '−' + moneyShort(discount)]);
+  facts.push(['Maliyet oranı', a.costRatio != null ? percent(a.costRatio) : '—'], ['Ödeme günü', dateMid(i.startDate)]);
+  return html`
+    <div class="cost-card grad-logo static">
+      <div class="r-label">Peşin satış</div>
+      <div class="r-big">${moneyShort(basePrice(i))}</div>
+      <div class="r-note">Tamamı peşin · vade, vade farkı ve ara ödeme yok</div>
+      <div class="cc-facts">${facts.map(([l, v]) => html`<div class="cc-fact"><span>${l}</span><strong>${v}</strong></div>`)}</div>
+    </div>
+    <div class="list-head"><span class="section-label">Tablo · 1 satır</span></div>
+    <div class="ptable">
+      <div class="pt-head"><span class="c-no">Sıra</span><span class="c-date">Tarih</span><span class="c-amt">Tutar</span><span class="c-pv">NBD</span><span class="c-lock" /></div>
+      ${a.rows.map((p) => html`<div class="pt-row down" key=${p.id}>
+        <span class="c-no"><strong>Peşin ödeme</strong></span><span class="c-date">${dateMid(payDate(p, i.startDate))}</span>
+        <span class="c-amt">${money(p.amount)}</span><span class="c-pv">${moneyShort(a.pv(p))}</span><span class="c-lock" /></div>`)}
       <div class="pt-total"><span class="c-no">Toplam</span><span class="c-date" /><span class="c-amt">${money(a.total)}</span><span class="c-pv">${moneyShort(a.pvAtBase)}</span><span class="c-lock" /></div>
     </div>`;
 }

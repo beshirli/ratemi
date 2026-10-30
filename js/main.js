@@ -1,6 +1,6 @@
 // Uygulama durumu, gezinme ve kayıt işlemleri (Android'deki AppViewModel'in karşılığı).
 import { html, render, useState, useEffect, useRef, useMemo } from '../vendor/preact-htm.js';
-import { Finance, Kind, Schedules, analyze, RowEdits, Offers, Conversion, sortRows, pay, DateX, basePrice, valueOf } from './finance.js';
+import { Finance, Kind, Schedules, analyze, RowEdits, Offers, Conversion, sortRows, pay, DateX, basePrice, valueOf, isCash } from './finance.js';
 import { moneyShort, percent, editable, dateShort } from './format.js';
 import { AppCtx, Icon, Logo } from './ui.js';
 import { HomeScreen, TemplatesScreen, OfferScreen, ConverterScreen, SettingsScreen, BaseRatePill } from './screens.js';
@@ -13,6 +13,7 @@ import { loadSettings, saveSettings, loadRecords, saveRecords, newId, backupJson
 const emptyOffer = () => ({ cashPrice: 0, down: 0, blocks: [], singles: [] });
 
 function autoName(i) {
+  if (isCash(i)) return `${moneyShort(i.listPrice)} – peşin satış`;
   const down = i.down.amount <= 0 ? 'peşinatsız' : i.down.percent ? `%${editable(i.down.amount)} peşinat` : `${moneyShort(i.down.amount)} peşinat`;
   return [moneyShort(i.listPrice), down, percent(i.rate), `${i.months} ay`].join(' – ');
 }
