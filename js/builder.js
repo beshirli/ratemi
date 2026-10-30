@@ -128,10 +128,10 @@ function InputsPanel({ input, set, step }) {
           <${IconButton} icon="trash" label="Ara ödemeyi sil" cls="red" onClick=${() => set({ interims: input.interims.filter((_, j) => j !== i) })} />
         </div>`;
       })}
-      <${OutlineButton} cls="full add-interim" icon="add" color="var(--teal)" onClick=${() => {
+      <${GradientButton} cls="full add-interim" icon="add" onClick=${() => {
         const month = (input.interims.length ? Math.max(...input.interims.map((x) => x.month)) : 0) + 6;
         set({ interims: [...input.interims, { month, value: { amount: 10, percent: true } }] });
-      }}>Ara ödeme ekle</${OutlineButton}>
+      }}>Ara ödeme ekle</${GradientButton}>
       ${conflict && html`
         <div class="b-inline">
           <span class="caption">Ara ödeme ayında</span>
