@@ -5,6 +5,8 @@ body { background: #fff !important; color: #141A2E; font: 10.5pt/1.35 'Inter', s
 .print-root { display: block !important; }
 * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .grad-logo { background: linear-gradient(120deg, #3456DE, #22BFD0) !important; color: #fff; }
+/* Ek bölümler (banka kredisi, tasarruf finansmanı): ana tablodan ayrışan turkuaz degrade. */
+.grad-section { background: linear-gradient(120deg, #0B7380, #22BFD0) !important; color: #fff; }
 .grad-offer { background: linear-gradient(120deg, #12873C, #3CC795) !important; color: #fff; }
 .grad-conv { background: linear-gradient(120deg, #5048CF, #A77BEA) !important; color: #fff; }
 
@@ -43,5 +45,6 @@ body { background: #fff !important; color: #141A2E; font: 10.5pt/1.35 'Inter', s
 .pr-table tfoot td { font-weight: 700; background: #EEF1F8; border-top: 2px solid #C9D2E6; }
 .pr-table tr { break-inside: avoid; }
 
-.pr-h2 { font-size: 13pt; color: #1C2B6E; margin: 16pt 0 6pt; break-before: auto; }
+/* Ek bölümler (banka kredisi, tasarruf finansmanı) üstteki plandan boşluk ve çizgiyle ayrılır. */
+.pr-h2 { font-size: 13pt; color: #1C2B6E; margin: 30pt 0 8pt; padding-top: 12pt; border-top: 2px solid #17A9B9; color: #0B7380; break-after: avoid; }
 .pr-table.loan td, .pr-table.loan th { font-size: 8pt; }

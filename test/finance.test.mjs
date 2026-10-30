@@ -77,5 +77,10 @@ eq('organizasyon ücreti', 700000, sv.rows.reduce((t, r) => t + r.fee, 0), 0.01)
 eq('birikim = sözleşme', 10000000, sv.rows[sv.rows.length - 1].cumulative, 0.001);
 const svA = analyze({ input: svIn, rows: null, balance: null }, 0.0299, taxes);
 eq('tahsisat satırı firmaya', 1, svA.rows.filter((r) => r.kind === Kind.ALLOCATION && r.month === 19 && Math.abs(r.amount - 10000000) < 0.01).length);
+// Süre şartı da %45: peşinatsız 100 ay → 45. ay; %20 peşinatla 32. ay (birikim şartı).
+const sv100 = (down) => SavingsFinance.plan({ ...sale, listPrice: 1000000, discountOn: false, down: { amount: 0, percent: true }, interims: [],
+  savings: { amount: { amount: 1000000, percent: false }, down, months: 100, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } });
+eq('süre %45: 45. ay', 45, sv100(0).allocationMonth);
+eq('%20 peşinat: 32. ay', 32, sv100(200000).allocationMonth);
 console.log(fails ? `${fails} HATA` : 'Tüm testler geçti');
 process.exit(fails ? 1 : 0);

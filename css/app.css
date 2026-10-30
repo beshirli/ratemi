@@ -410,6 +410,15 @@ body.modal-open { overflow: hidden; }
 .loan-sum strong.big { font-size: 22px; } .loan-sum .teal { color: var(--teal); }
 .wiz-bar { display: flex; gap: 4px; margin-top: 8px; } .wiz-bar i { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.35); } .wiz-bar i.on { background: rgba(255,255,255,.95); }
 .wiz-body { display: flex; flex-direction: column; gap: 10px; }
+.alloc-strip { display: flex; gap: 10px; align-items: center; background: var(--teal-soft); border-radius: 14px; padding: 10px 14px; margin-bottom: 10px; }
+.alloc-strip span { display: flex; flex-direction: column; min-width: 0; flex: 1; } .alloc-strip span:first-child { flex: 1.4; }
+.alloc-strip .r { text-align: right; } .alloc-strip small { font-size: 11px; color: var(--label2); } .alloc-strip strong { font-size: 14px; white-space: nowrap; }
+.alloc-strip .teal, .model-card .teal { color: var(--teal); }
+.model-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.model-card { display: flex; flex-direction: column; gap: 1px; text-align: left; padding: 12px; border-radius: 16px; border: 1.5px solid var(--sep); background: var(--card); }
+.model-card.on { border-color: var(--teal); background: var(--teal-soft); }
+.model-card strong { font-size: 14px; margin-bottom: 6px; } .model-card.on strong { color: var(--teal); }
+.model-card small { font-size: 11px; color: var(--label2); margin-top: 4px; } .model-card b { font-size: 18px; } .model-card span { font-size: 13px; font-weight: 600; }
 .lt-head.sv, .lt-row.sv { grid-template-columns: 30px 1.4fr 1fr 0.9fr 1.1fr; }
 .lt-row.alloc { background: var(--teal-soft) !important; color: var(--teal); font-weight: 700; }
 @media (max-width: 480px) { .lt-head.sv, .lt-row.sv { grid-template-columns: 26px 1fr 0.9fr 1.1fr; } }

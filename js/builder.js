@@ -346,8 +346,9 @@ function SavingsStep({ input, set, no }) {
       ${input.savings && plan && html`
         <div class="loan-sum">
           <em class="teal">Tahsisat ${plan.allocationMonth}. ay · ${dateMid(day)}</em>
-          <span class="wide caption">${plan.manual ? `Elle belirlendi (kurala göre ${plan.computedMonth}. ay)` : "Birikim %45 ve vadenin %40'ı kuralıyla hesaplandı"}</span>
-          <span><small>Sözleşme tutarı</small><strong>${moneyShort(plan.amount)}</strong></span>
+          <span class="wide caption">${plan.manual ? `Elle belirlendi (kurala göre ${plan.computedMonth}. ay)` : "Birikim %45 ve vadenin %45'i kuralıyla hesaplandı"}</span>
+          <span><small>Tahsisat tutarı</small><strong>${moneyShort(plan.amount)}</strong></span>
+          <span><small>Maliyet oranı</small><strong>${(() => { const c = app.analyzePlan(app.plan).costRatio; return c != null ? percent(c) : '—'; })()}</strong></span>
           <span><small>${plan.growth > 0 ? 'İlk taksit (artan)' : 'Aylık taksit'}</small><strong>${money(plan.firstPayment)}</strong></span>
           <span><small>Şirkete peşinat</small><strong>${moneyShort(plan.down)}</strong></span>
           <span><small>Organizasyon ücreti</small><strong>${moneyShort(plan.fee)}</strong></span>

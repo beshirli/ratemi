@@ -100,7 +100,7 @@ function SavingsPart({ plan, start }) {
       <${Box} label="Tahsisat" value=${`${plan.allocationMonth}. ay · ${dateMid(DateX.plusMonths(start, plan.allocationMonth))}`} tone="teal" />
     </div>
     <table class="pr-table loan">
-      <thead class="grad-logo"><tr><th>Ay</th><th>Tarih</th><th class="num">Tasarruf</th><th class="num">Org. ücreti</th><th class="num">Toplam</th><th class="num">Birikim</th></tr></thead>
+      <thead class="grad-section"><tr><th>Ay</th><th>Tarih</th><th class="num">Tasarruf</th><th class="num">Org. ücreti</th><th class="num">Toplam</th><th class="num">Birikim</th></tr></thead>
       <tbody>${plan.rows.map((r) => html`<tr class=${r.allocation ? 'grace' : 'interim'}><td>${r.month === 0 ? 'P' : r.month}</td><td>${dateMid(DateX.plusMonths(start, r.month))}${r.allocation ? ' · tahsisat' : ''}</td>
         <td class="num">${money(r.saving)}</td><td class="num">${r.fee > 0 ? money(r.fee) : '—'}</td><td class="num">${money(r.saving + r.fee)}</td><td class="num">${money(r.cumulative)}</td></tr>`)}</tbody>
       <tfoot><tr><td>Toplam</td><td /><td class="num">${money(plan.rows.reduce((t, r) => t + r.saving, 0))}</td><td class="num">${money(plan.fee)}</td><td class="num">${money(plan.totalPaid)}</td><td /></tr></tfoot>
@@ -120,7 +120,7 @@ function LoanPart({ loan, start }) {
       <${Box} label="Toplam geri ödeme" value=${moneyShort(loan.totalPayment)} tone="teal" />
     </div>
     <table class="pr-table loan">
-      <thead class="grad-logo"><tr><th>No</th><th>Tarih</th><th class="num">Taksit</th><th class="num">Anapara</th><th class="num">Kâr payı</th>${taxed && html`<th class="num">Vergi</th>`}<th class="num">Kalan</th></tr></thead>
+      <thead class="grad-section"><tr><th>No</th><th>Tarih</th><th class="num">Taksit</th><th class="num">Anapara</th><th class="num">Kâr payı</th>${taxed && html`<th class="num">Vergi</th>`}<th class="num">Kalan</th></tr></thead>
       <tbody>${loan.rows.map((r) => html`<tr class="interim"><td>${r.month}</td><td>${dateMid(DateX.plusMonths(start, r.month))}</td><td class="num">${money(r.payment)}</td><td class="num">${money(r.principal)}</td><td class="num">${money(r.interest)}</td>${taxed && html`<td class="num">${money(r.tax)}</td>`}<td class="num">${money(r.balance)}</td></tr>`)}</tbody>
       <tfoot><tr><td>Toplam</td><td /><td class="num">${money(loan.totalPayment)}</td><td class="num">${money(loan.principal)}</td><td class="num">${money(loan.totalInterest)}</td>${taxed && html`<td class="num">${money(loan.totalTax)}</td>`}<td /></tr></tfoot>
     </table>`;

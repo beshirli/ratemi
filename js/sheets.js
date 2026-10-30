@@ -1,6 +1,6 @@
 // Pencereler: baz oran, tutar, blok, tek ödeme, satır düzenleme, hedef maliyet, ad, çakışma, şablondan plan, PDF.
 import { html, useState } from '../vendor/preact-htm.js';
-import { Finance, Kind, RowEdits, sortRows, payDate, DateX, Solve, valueOf, SavingsFinance, basePrice } from './finance.js';
+import { Finance, Kind, RowEdits, sortRows, payDate, DateX, Solve, valueOf, SavingsFinance, basePrice, savingsAmount } from './finance.js';
 import { money, moneyShort, percent, dateShort, dateMid, dayShift, editable } from './format.js';
 import {
   Sheet, SheetTitle, GradHeader, GradientButton, OutlineButton, NumberField, FieldBox, Chip, Segmented,
@@ -288,13 +288,25 @@ const WIZ = ['Sözleşme', 'Vade ve ücret', 'Taksit modeli', 'Tahsisat'];
  * (sabit / artan) → tahsisat ayı (kurala göre ya da elle) ve BDDK uyarıları; "Uygula" plana yazar.
  */
 export function SavingsWizard({ input, rest, onApply, onClose }) {
+  const app = useApp();
   const [page, setPage] = useState(0);
-  const [d, setD] = useState(input.savings);
+  const [raw, setRaw] = useState(input.savings);
+  // Şirkete peşinat yazıldığı biçimde (yüzde ya da TL) tutulur; tutar sözleşme tutarından hesaplanır, iki alan senkron kalır.
+  const [downV, setDownV] = useState({ amount: input.savings.down, percent: false });
   const base = basePrice(input);
+  const amount = savingsAmount({ ...input, savings: raw });
+  const d = { ...raw, down: Finance.roundKurus(Math.min(Math.max(valueOf(downV, amount), 0), amount)) };
   const p = SavingsFinance.plan({ ...input, savings: d });
-  const amount = p ? p.amount : valueOf(d.amount, base);
+  const costOf = (sv) => Solve.costOf({ ...input, savings: sv }, app.settings.baseRate, app.settings.taxes);
   const housing = input.loanType === 'HOUSING';
-  const up = (patch) => setD({ ...d, ...patch });
+  const up = (patch) => setRaw({ ...raw, ...patch });
+  // Tahsisat tarihi, tutarı ve planın maliyet oranı.
+  const strip = (pl, cost, title) => html`
+    <div class="alloc-strip">
+      <span><small>${title || 'Tahsisat'}</small><strong class="teal">${pl.allocationMonth}. ay · ${dateMid(DateX.plusMonths(input.startDate, pl.allocationMonth))}</strong></span>
+      <span class="r"><small>Tutar</small><strong>${moneyShort(pl.amount)}</strong></span>
+      <span class="r"><small>Maliyet</small><strong>${cost != null ? percent(cost) : '—'}</strong></span>
+    </div>`;
   const r6 = (v) => Math.round(v * 1e6) / 1e6;
   const stepper = (label, value, caption, minus, plus) => html`
     <div class="b-ctl"><span class="field-label">${label}</span>
@@ -306,8 +318,8 @@ export function SavingsWizard({ input, rest, onApply, onClose }) {
       <${AmountPercentFields} value=${d.amount} base=${base} onChange=${(v) => up({ amount: v })} />
       <${OutlineButton} cls="full" icon="check" color="var(--teal)" onClick=${() => up({ amount: { amount: Math.round(rest), percent: false } })}>Kalanın tamamı (${moneyShort(rest)})</${OutlineButton}>
       <p class="caption">Müşterinin tasarruf şirketine peşinatı · sözleşme tutarının</p>
-      <${AmountPercentFields} value=${{ amount: d.down, percent: false }} base=${amount} onChange=${(v) => up({ down: Finance.roundKurus(Math.min(Math.max(valueOf(v, amount), 0), amount)) })} />
-      <div class="chips-wrap">${[0, 10, 20, 30, 40].map((x) => html`<${Chip} label=${x === 0 ? 'Peşinatsız' : '%' + x} color="var(--teal)" selected=${Math.abs(d.down - amount * x / 100) < 1} onClick=${() => up({ down: Finance.roundKurus(amount * x / 100) })} />`)}</div>`,
+      <${AmountPercentFields} value=${downV} base=${amount} onChange=${(v) => setDownV(v)} />
+      <div class="chips-wrap">${[0, 10, 20, 30, 40].map((x) => html`<${Chip} label=${x === 0 ? 'Peşinatsız' : '%' + x} color="var(--teal)" selected=${Math.abs(d.down - amount * x / 100) < 1} onClick=${() => setDownV({ amount: x, percent: true })} />`)}</div>`,
     () => html`
       ${stepper('Sözleşme vadesi', `${d.months} ay`, `azami ${housing ? 120 : 60} ay`, () => up({ months: Math.max(2, d.months - 1), allocationMonth: null }), () => up({ months: Math.min(240, d.months + 1), allocationMonth: null }))}
       <div class="chips-wrap">${(housing ? [36, 48, 60, 84, 96, 120] : [24, 36, 48, 60]).map((m) => html`<${Chip} label=${`${m} ay`} color="var(--teal)" selected=${d.months === m} onClick=${() => up({ months: m, allocationMonth: null })} />`)}</div>
@@ -316,7 +328,21 @@ export function SavingsWizard({ input, rest, onApply, onClose }) {
       <p class="caption">Ücretin yarısı peşin; kalanı 2. taksitten itibaren kaç taksitte (en fazla 4)?</p>
       <${Segmented} options=${['1', '2', '3', '4']} index=${(d.feeInstallments || 4) - 1} onChange=${(i) => up({ feeInstallments: i + 1 })} />`,
     () => html`
-      <${Segmented} options=${['Sabit taksit', 'Artan taksit']} index=${d.growth > 0 ? 1 : 0} onChange=${(i) => up({ growth: i === 1 ? 0.01 : 0 })} />
+      ${(() => {
+        // Sabit ve artan model yan yana: tahsisat tarihi, tutarı, maliyet oranı; dokununca seçilir.
+        const g = d.growth > 0 ? d.growth : 0.01;
+        const card = (title, sv, on) => {
+          const pl = SavingsFinance.plan({ ...input, savings: sv });
+          const cost = costOf(sv);
+          return html`<button class=${'model-card' + (on ? ' on' : '')} onClick=${() => up({ growth: sv.growth })}>
+            <strong>${title}</strong>
+            ${pl && html`<small>Tahsisat</small><b class="teal">${pl.allocationMonth}. ay</b><span>${dateMid(DateX.plusMonths(input.startDate, pl.allocationMonth))}</span>
+              <small>Tutar</small><span>${moneyShort(pl.amount)}</span><small>Maliyet oranı</small><span>${cost != null ? percent(cost) : '—'}</span>
+              <small>${pl.growth > 0 ? 'İlk / son taksit' : 'Aylık taksit'}</small><span>${pl.growth > 0 ? `${moneyShort(pl.firstPayment)} / ${moneyShort(pl.rows[pl.rows.length - 1].saving)}` : moneyShort(pl.firstPayment)}</span>`}
+          </button>`;
+        };
+        return html`<div class="model-cards">${card('Sabit taksit', { ...d, growth: 0 }, !(d.growth > 0))}${card(`Artan (${percent(g, 1)}/ay)`, { ...d, growth: g }, d.growth > 0)}</div>`;
+      })()}
       ${d.growth > 0 && html`
         ${stepper('Tahsisattan sonra aylık artış', percent(d.growth), 'kira destekli / endeksli model', () => up({ growth: Math.max(0.001, r6(d.growth - 0.001)) }), () => up({ growth: r6(d.growth + 0.001) }))}
         <div class="chips-wrap">${[0.005, 0.01, 0.015, 0.02].map((g) => html`<${Chip} label=${percent(g, 1)} color="var(--teal)" selected=${Math.abs(d.growth - g) < 1e-9} onClick=${() => up({ growth: g })} />`)}</div>`}
@@ -328,7 +354,7 @@ export function SavingsWizard({ input, rest, onApply, onClose }) {
     () => p && html`
       <div class="loan-sum">
         <span class="wide"><small>Tahsisat ayı</small><strong class="big teal">${p.allocationMonth}. ay · ${dateMid(DateX.plusMonths(input.startDate, p.allocationMonth))}</strong></span>
-        <span class="wide caption">Kural: birikim ≥ %45 ve vadenin ≥ %40'ı (peşinat oranı kadar öne çekilir) → ${p.computedMonth}. ay</span>
+        <span class="wide caption">Kural: birikim ≥ %45 ve vadenin ≥ %45'i (peşinat oranı kadar öne çekilir) → ${p.computedMonth}. ay</span>
       </div>
       <${SwitchRow} title="Tahsisat ayını elle belirle" caption="Çekilişli modelde ya da şirketin verdiği tarih farklıysa" checked=${d.allocationMonth != null}
         onChange=${(on) => up({ allocationMonth: on ? p.computedMonth : null })} />
@@ -353,6 +379,7 @@ export function SavingsWizard({ input, rest, onApply, onClose }) {
         <span>Adım ${page + 1} / 4 · ${WIZ[page]}</span>
         <div class="wiz-bar">${[0, 1, 2, 3].map((i) => html`<i class=${i <= page ? 'on' : ''} />`)}</div>
       </div>
+      ${p && strip(p, costOf(d))}
       <div class="wiz-body">${pages[page]()}</div>
     </${Sheet}>`;
 }

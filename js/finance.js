@@ -146,12 +146,12 @@ export function noTerm(i) {
 
 /**
  * Tasarruf finansmanı (Android SavingsFinance ile aynı, çekilişsiz model): sabit taksit (S − P) / N ya da tahsisattan
- * sonra %g artan; tahsisat ayı birikim ≥ %45 (yeni mevzuat) ve süre ≥ N · (0,40 − P / S); organizasyon ücreti S · oran, yarısı peşin,
+ * sonra %g artan; tahsisat ayı birikim ≥ %45 ve süre ≥ N · (0,45 − P / S) (yeni mevzuat); organizasyon ücreti S · oran, yarısı peşin,
  * kalanı 2. taksitten itibaren en fazla 4 eşit taksit. Tahsisatta sözleşme tutarının tamamı firmaya geçer.
  */
-/** Tahsisat için asgari birikim (yeni mevzuat %45) ve süre (vadenin %40'ı) oranları. */
+/** Tahsisat için asgari birikim ve süre oranları (yeni mevzuat: ikisi de %45; önceden %40). */
 export const SAVING_THRESHOLD = 0.45;
-export const TIME_THRESHOLD = 0.40;
+export const TIME_THRESHOLD = 0.45;
 
 export const SavingsFinance = {
   firstPayment(amount, down, n, growth, alloc) {
