@@ -2,7 +2,8 @@
 // Tarihler "epoch günü" (1970-01-01'den beri gün) olarak tutulur; ay ekleme Java LocalDate gibi ay sonuna kırpar.
 
 export const DAYS_PER_MONTH = 30;
-export const Kind = { DOWN: 0, INSTALLMENT: 1, INTERIM: 2, GRACE: 3 };
+// CREDIT: banka kredisi (peşinat gününde firmaya peşin geçen tutar, kilitli).
+export const Kind = { DOWN: 0, INSTALLMENT: 1, INTERIM: 2, GRACE: 3, CREDIT: 4 };
 export const LoanType = { HOUSING: 'HOUSING', VEHICLE: 'VEHICLE', PERSONAL: 'PERSONAL' };
 
 // --- Tarih ---
@@ -115,6 +116,61 @@ export const firstInstallmentMonth = (i) => 1 + (i.graceMonths || 0);
 /** Peşin satış: peşinat kampanyalı fiyatın tamamı (0,50 TL payla); vade, vade farkı ve ara ödeme yok, plan tek satır. */
 export const isCash = (i) => i.listPrice > 0 && valueOf(i.down, basePrice(i)) >= basePrice(i) - 0.5;
 
+/** Banka kredisi tutarı (TL): peşinattan sonra kalanı aşamaz; peşin satışta 0. input.credit = { amount, months, rate, subsidized, bankRate }. */
+export function creditAmount(i) {
+  const c = i.credit;
+  if (!c || isCash(i)) return 0;
+  const bp = basePrice(i);
+  const max = Math.max(0, bp - valueOf(i.down, bp));
+  return Finance.roundKurus(Math.min(Math.max(valueOf(c.amount, bp), 0), max));
+}
+
+/** Firma vadesi yok: peşinat + kredi + ara ödemeler kampanyalı fiyatı karşılıyor (0,50 TL payla). */
+export function noTerm(i) {
+  if (isCash(i)) return false;
+  const k = creditAmount(i);
+  if (!(k > 0)) return false;
+  const bp = basePrice(i);
+  return valueOf(i.down, bp) + k + i.interims.reduce((s, x) => s + valueOf(x.value, bp), 0) >= bp - 0.5;
+}
+
+/**
+ * Banka kredisi: eşit taksitli ödeme planı ve katkı (Android BankLoan ile aynı). Kredi peşinat gününde kullanılır,
+ * ilk taksit 1 ay sonra. Vergi ürün türüne göre (konutta yok). Katkı = kredi − müşteri taksitlerinin bankanın
+ * (vergili) oranıyla bugünkü değeri; firma peşin öder, maliyete eklenir.
+ */
+export const BankLoan = {
+  payment: (k, r, n) => (r === 0 ? k / n : k * r / (1 - Math.pow(1 + r, -n))),
+  plan(input, taxes) {
+    const c = input.credit;
+    if (!c) return null;
+    const principal = creditAmount(input);
+    if (!(principal > 0) || !(c.months > 0)) return null;
+    const t = taxes[input.loanType] || DefaultTaxes[input.loanType];
+    const taxRate = t.kkdf + t.bsmv;
+    const each = Finance.roundKurus(BankLoan.payment(principal, c.rate * (1 + taxRate), c.months));
+    let balance = principal;
+    const rows = [];
+    for (let m = 1; m <= c.months; m++) {
+      const interest = Finance.roundKurus(balance * c.rate);
+      const tax = Finance.roundKurus(interest * taxRate);
+      const principalPart = m === c.months ? balance : Finance.roundKurus(each - interest - tax);
+      balance = Finance.roundKurus(balance - principalPart);
+      rows.push({ month: m, payment: Finance.roundKurus(principalPart + interest + tax), principal: principalPart, interest, tax, balance });
+    }
+    let contribution = 0;
+    if (c.subsidized && c.bankRate > c.rate) {
+      const bankEff = c.bankRate * (1 + taxRate);
+      contribution = Finance.roundKurus(Math.max(0, principal - rows.reduce((s, r) => s + r.payment / Math.pow(1 + bankEff, r.month), 0)));
+    }
+    const sum = (k) => rows.reduce((s, r) => s + r[k], 0);
+    return {
+      principal, months: c.months, rate: c.rate, taxRate, effectiveRate: c.rate * (1 + taxRate), payment: each, rows, contribution,
+      totalPayment: sum('payment'), totalInterest: sum('interest'), totalTax: sum('tax'),
+    };
+  },
+};
+
 export const DefaultTaxes = {
   PERSONAL: { kkdf: 0.15, bsmv: 0.15 },
   VEHICLE: { kkdf: 0.15, bsmv: 0.15 },
@@ -148,7 +204,11 @@ export const Schedules = {
     const interimMonths = new Set(input.interims.map((x) => x.month));
     const down = Finance.roundKurus(valueOf(input.down, base));
     if (down > 0) rows.push(pay(id++, 0, down, Kind.DOWN, { locked: true }));
+    const credit = creditAmount(input);
+    if (credit > 0) rows.push(pay(id++, 0, credit, Kind.CREDIT, { locked: true }));
     input.interims.forEach((x) => rows.push(pay(id++, x.month, Finance.roundKurus(valueOf(x.value, base)), Kind.INTERIM, { locked: true })));
+    // Firma vadesi yoksa taksit ve ödemesiz ay da yok.
+    if (noTerm(input)) return { rows: sortRows(rows), rate: Schedules.rate(input, taxes), target: base, overflow: null };
     const first = firstInstallmentMonth(input);
     for (let m = 1; m < first; m++) if (!interimMonths.has(m)) rows.push(pay(id++, m, 0, Kind.GRACE, { locked: true }));
     for (let m = first; m < first + input.months; m++) {
@@ -167,6 +227,7 @@ export const Schedules = {
       discount: pct(i.discount, i.listPrice),
       down: pct(i.down, bp),
       interims: i.interims.map((x) => ({ ...x, value: pct(x.value, bp) })),
+      credit: i.credit ? { ...i.credit, amount: pct(i.credit.amount, bp) } : i.credit,
     };
     const rows = Schedules.build(plan, taxes).rows;
     return { id: 0, name, input, rows, balance: { rate: baseRate, nbd: Finance.presentValue(rows, baseRate) } };
@@ -176,7 +237,8 @@ export const Schedules = {
     const list = t.input.listPrice;
     if (!(list > 0)) return 0;
     const nbd = t.balance ? t.balance.nbd : Finance.presentValue(Schedules.build(t, taxes).rows, baseRate);
-    return 1 - nbd / list;
+    const contribution = BankLoan.plan(t.input, taxes)?.contribution || 0;
+    return 1 - (nbd - contribution) / list;
   },
 
   fromTemplate(t, listPrice, today, baseRate, taxes) {
@@ -187,10 +249,13 @@ export const Schedules = {
       ...old, listPrice, startDate: today,
       discount: scale(old.discount), down: scale(old.down),
       interims: old.interims.map((x) => ({ ...x, value: scale(x.value) })),
+      credit: old.credit ? { ...old.credit, amount: scale(old.credit.amount) } : old.credit,
     };
     const cost = Schedules.templateCost(t, baseRate, taxes);
     const rows = (t.rows || Schedules.generate(old, taxes).rows).map((r) => ({ ...r, amount: Finance.roundKurus(r.amount * factor) }));
-    return { id: 0, name: '', input, rows, balance: { rate: baseRate, nbd: listPrice * (1 - cost) } };
+    // Katkı ayrıca maliyet: tablonun bugünkü değeri katkı kadar yüksek tutulur ki maliyet oranı aynı kalsın.
+    const contribution = BankLoan.plan(input, taxes)?.contribution || 0;
+    return { id: 0, name: '', input, rows, balance: { rate: baseRate, nbd: listPrice * (1 - cost) + contribution } };
   },
 };
 
@@ -206,7 +271,10 @@ export function analyze(plan, baseRate, taxes) {
   const rows = schedule.rows;
   const listPrice = plan.input.listPrice;
   const total = rows.reduce((s, r) => s + r.amount, 0);
-  const pvAtBase = Finance.presentValue(rows, baseRate);
+  // Banka kredisi (müşteri bilgisi) ve katkı: katkı firmanın peşin ödediği maliyet.
+  const loan = BankLoan.plan(plan.input, taxes);
+  const contribution = loan ? loan.contribution : 0;
+  const pvAtBase = Finance.presentValue(rows, baseRate) - contribution;
   const inst = rows.filter((r) => r.kind === Kind.INSTALLMENT);
   const pool = inst.filter((r) => !r.locked).length ? inst.filter((r) => !r.locked) : inst;
   const counts = new Map();
@@ -214,7 +282,7 @@ export function analyze(plan, baseRate, taxes) {
   let installment = null, best = 0;
   counts.forEach((c, amt) => { if (c > best) { best = c; installment = amt; } });
   return {
-    schedule, rows, baseRate, listPrice, total, pvAtBase,
+    schedule, rows, baseRate, listPrice, total, pvAtBase, loan, contribution,
     basePrice: basePrice(plan.input),
     installmentCount: inst.length, installment,
     pv: (p) => p.amount * Finance.discountFactor(baseRate, period(p)),

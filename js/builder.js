@@ -3,19 +3,20 @@
 // Masaüstünde (WIDE ve üstü) tek sayfa: solda dört girdi bölümü alt alta, sağda anında oluşan plan.
 // Her değişiklik planı anında yeniden hesaplar; kayıt isteğe bağlı ("Kaydet"), şablon ayrı düğmeyle.
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash } from './finance.js';
+import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash, noTerm, creditAmount } from './finance.js';
 import { money, moneyShort, percent, dateMid, dayShift, editable } from './format.js';
 import {
   Icon, IconButton, GradientButton, OutlineButton, TextAction, Chip, Segmented, SwitchRow, Badge,
   NumberField, FieldBox, AmountPercentFields, StepperField, TopBar, useApp,
 } from './ui.js';
-import { RateSheet, BlockSheet, NameSheet, TargetCostSheet, RowEditSheet, ShareSheet } from './sheets.js';
+import { RateSheet, BlockSheet, NameSheet, TargetCostSheet, RowEditSheet, ShareSheet, LoanSheet } from './sheets.js';
 import { BaseRatePill } from './screens.js';
 
 const priceStep = (v) => (v >= 10e6 ? 50000 : v >= 1e6 ? 10000 : v >= 1e5 ? 1000 : v >= 1e4 ? 100 : 10);
 const yearsText = (m) => (m % 12 === 0 ? `${m / 12} yıl` : m > 12 ? `${Math.floor(m / 12)} yıl ${m % 12} ay` : '');
 const TYPES = [['HOUSING', 'Konut', false], ['VEHICLE', 'Taşıt', true], ['PERSONAL', 'İhtiyaç', true]];
-const STEPS = ['Ürün', 'Peşinat', 'Vade', 'Oran', 'Plan'];
+const STEPS = ['Ürün', 'Peşinat', 'Kredi', 'Vade', 'Oran', 'Plan'];
+const PLAN = 5;
 const WIDE = '(min-width: 1100px)';
 
 /** Ekran masaüstü genişliğinde mi (pencere boyutu değişince güncellenir). */
@@ -50,11 +51,13 @@ export function PlanBuilderScreen() {
   const wide = useWide();
   // Peşin satışta vade ve oran adımları yok: Ürün → Peşinat → Plan.
   const cash = isCash(input);
-  const visible = cash ? [0, 1, 4] : [0, 1, 2, 3, 4];
-  const step = cash && (app.planStep === 2 || app.planStep === 3) ? 4 : app.planStep;
+  // Peşin satışta kredi / vade / oran yok; kredi kalanı karşılıyorsa vade / oran yok; Ayarlar'da kredi kapalıysa Kredi adımı yok.
+  const visible = cash ? [0, 1, PLAN] : noTerm(input) ? [0, 1, 2, PLAN]
+    : app.settings.creditEnabled === false && !input.credit ? [0, 1, 3, 4, PLAN] : [0, 1, 2, 3, 4, PLAN];
+  const step = visible.includes(app.planStep) ? app.planStep : PLAN;
   const goStep = app.setPlanStep;
   const at = Math.max(0, visible.indexOf(step));
-  const next = visible[at + 1] ?? 4;
+  const next = visible[at + 1] ?? PLAN;
 
   // Plan bölümü (5. adım ya da masaüstünde sağ sütun).
   const result = !ready ? html`
@@ -83,7 +86,7 @@ export function PlanBuilderScreen() {
         </${TopBar}>
         <div class="content builder-wide">
           <section class="b-inputs">
-            ${(cash ? [0, 1] : [0, 1, 2, 3]).map((i) => html`<${InputsPanel} key=${i} input=${input} set=${set} step=${i} number=${i + 1} />`)}
+            ${visible.filter((i) => i < PLAN).map((i, pos) => html`<${InputsPanel} key=${i} input=${input} set=${set} step=${i} number=${pos + 1} />`)}
           </section>
           <section class="b-result">${result}</section>
         </div>
@@ -103,7 +106,7 @@ export function PlanBuilderScreen() {
           </button>`)}
       </div>
       <div class="content builder">
-        ${step < 4 ? html`
+        ${step < PLAN ? html`
           <${InputsPanel} input=${input} set=${set} step=${step} />
           <div class="step-footer">
             ${ready && (a.schedule.overflow
@@ -115,12 +118,13 @@ export function PlanBuilderScreen() {
                 </div>`
               : html`<div class="step-summary">
                   <span><small>Maliyet</small><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong></span>
-                  <span><small>${a.installmentCount} × taksit</small><strong>${a.installment != null ? moneyShort(a.installment) : '—'}</strong></span>
+                  ${a.installmentCount > 0 ? html`<span><small>${a.installmentCount} × taksit</small><strong>${a.installment != null ? moneyShort(a.installment) : '—'}</strong></span>`
+                    : html`<span><small>Banka kredisi</small><strong>${a.loan ? moneyShort(a.loan.principal) : '—'}</strong></span>`}
                   <span><small>Toplam</small><strong>${moneyShort(a.total)}</strong></span>
                 </div>`)}
             <div class="btn-row">
               ${at > 0 && html`<${OutlineButton} icon="back" onClick=${() => goStep(visible[at - 1])}>Geri</${OutlineButton}>`}
-              <${GradientButton} cls="grow" trailing="forward" disabled=${!ready} onClick=${() => goStep(next)}>${next === 4 ? 'Planı göster' : 'İleri'}</${GradientButton}>
+              <${GradientButton} cls="grow" trailing="forward" disabled=${!ready} onClick=${() => goStep(next)}>${next === PLAN ? 'Planı göster' : 'İleri'}</${GradientButton}>
             </div>
           </div>`
         : result}
@@ -186,6 +190,8 @@ function InputsPanel({ input, set, step, number }) {
         </div>`}`}
     </div>`,
 
+    () => html`<${CreditStep} input=${input} set=${set} no=${no} />`,
+
     () => html`
     <div class="card b-sec">
       <div class="b-head">${no}Vade</div>
@@ -235,6 +241,79 @@ function InputsPanel({ input, set, step, number }) {
   return steps[step]();
 }
 
+// --- Kredi adımı ---
+
+const QUICK_CREDIT_MONTHS = [12, 24, 36, 48, 60, 120];
+const QUICK_CREDIT_RATES = [0.0099, 0.0149, 0.0199, 0.0249, 0.0299, 0.0349];
+const round6 = (v) => Math.round(v * 1e6) / 1e6;
+
+/**
+ * Banka kredisi: tutar (kampanyalı fiyatın yüzdesi ⇄ TL, "Kalanın tamamı"), vade, müşteriye uygulanan aylık oran,
+ * katkılı kredide bankanın oranı. Canlı özet: taksit, toplam geri ödeme; katkı yalnız kullanıcıya.
+ */
+function CreditStep({ input, set, no }) {
+  const app = useApp();
+  const base = basePrice(input);
+  const c = input.credit;
+  const loan = app.analyzePlan(app.plan).loan;
+  const t = app.settings.taxes[input.loanType] || { kkdf: 0, bsmv: 0 };
+  const taxRate = input.loanType === 'HOUSING' ? 0 : t.kkdf + t.bsmv;
+  const rest = Math.max(0, base - valueOf(input.down, base) - input.interims.reduce((s, x) => s + valueOf(x.value, base), 0));
+  const setC = (patch) => set({ credit: { ...c, ...patch } });
+  const rateSheet = (key, title) => app.sheet(html`<${RateSheet} title=${title} rate=${c[key]} onClose=${app.closeSheet} onDone=${(r) => { app.closeSheet(); setC({ [key]: r }); }} />`);
+  return html`
+    <div class="card b-sec">
+      <div class="b-head">${no}Banka kredisi${c && html`<span class="caption grow right">kampanyalı fiyatın</span>`}</div>
+      <${SwitchRow} title="Banka kredisi kullan" caption="Kredi peşinat gününde firmaya peşin geçer; müşteri bankaya taksitle öder." checked=${!!c}
+        onChange=${(on) => set({ credit: on ? { amount: { amount: Math.round(rest), percent: false }, months: input.loanType === 'HOUSING' ? 120 : 36, rate: 0.0249, subsidized: false, bankRate: 0.0249 } : null })} />
+      ${c && html`
+        <${AmountPercentFields} value=${c.amount} base=${base} onChange=${(v) => setC({ amount: v })} />
+        <${OutlineButton} cls="full" icon="check" color="var(--teal)" onClick=${() => setC({ amount: { amount: Math.round(rest), percent: false } })}>Kalanın tamamı (${moneyShort(rest)})</${OutlineButton}>
+        <div class="b-ctl">
+          <span class="field-label">Kredi vadesi</span>
+          <div class="b-stepper">
+            <${IconButton} icon="minus" label="Azalt" cls="filled" onClick=${() => setC({ months: Math.max(1, c.months - 1) })} />
+            <div class="bs-val"><${NumberField} value=${c.months} inputMode="numeric" onChange=${(v) => v >= 1 && setC({ months: Math.min(360, Math.round(v)) })} /><span>ay</span></div>
+            <${IconButton} icon="add" label="Artır" cls="filled" onClick=${() => setC({ months: Math.min(360, c.months + 1) })} />
+          </div>
+          <div class="caption center">${yearsText(c.months) || ' '}</div>
+        </div>
+        <div class="chips-wrap">${QUICK_CREDIT_MONTHS.map((m) => html`<${Chip} label=${`${m} ay`} selected=${c.months === m} color="var(--teal)" onClick=${() => setC({ months: m })} />`)}</div>
+        <div class="b-ctl">
+          <span class="field-label">Aylık kredi oranı (müşteri)</span>
+          <div class="b-stepper">
+            <${IconButton} icon="minus" label="Azalt" cls="filled" onClick=${() => setC({ rate: Math.max(0, round6(c.rate - 0.0001)) })} />
+            <button class="bs-rate" onClick=${() => rateSheet('rate', 'Aylık kredi oranı')} title="Klavyeyle gir">${percent(c.rate)}</button>
+            <${IconButton} icon="add" label="Artır" cls="filled" onClick=${() => setC({ rate: round6(c.rate + 0.0001) })} />
+          </div>
+          <div class="caption center">${taxRate > 0 ? `KKDF + BSMV ile ${percent(c.rate * (1 + taxRate))}` : 'konut kredisinde vergi yok'}</div>
+        </div>
+        <div class="chips-wrap">${QUICK_CREDIT_RATES.map((r) => html`<${Chip} label=${percent(r)} selected=${Math.abs(c.rate - r) < 1e-9} color="var(--teal)" onClick=${() => setC({ rate: r })} />`)}</div>
+        <${SwitchRow} title="Katkılı kredi" caption="Banka kendi oranıyla hesaplar; farkın bugünkü değerini firmadan peşin alır (maliyete eklenir, müşteri görmez)."
+          checked=${!!c.subsidized} onChange=${(on) => setC({ subsidized: on, bankRate: on && !(c.bankRate > c.rate) ? 0.035 : c.bankRate })} />
+        ${c.subsidized && html`
+          <div class="b-ctl">
+            <span class="field-label">Bankanın oranı</span>
+            <div class="b-stepper">
+              <${IconButton} icon="minus" label="Azalt" cls="filled" onClick=${() => setC({ bankRate: Math.max(0, round6(c.bankRate - 0.0001)) })} />
+              <button class="bs-rate" onClick=${() => rateSheet('bankRate', 'Bankanın oranı')} title="Klavyeyle gir">${percent(c.bankRate)}</button>
+              <${IconButton} icon="add" label="Artır" cls="filled" onClick=${() => setC({ bankRate: round6(c.bankRate + 0.0001) })} />
+            </div>
+            <div class="caption center">katkı bu oranla hesaplanır</div>
+          </div>`}
+        ${loan && html`
+          <div class="loan-sum">
+            <span><small>Aylık taksit</small><strong>${money(loan.payment)}</strong></span>
+            <span><small>Toplam geri ödeme</small><strong>${moneyShort(loan.totalPayment)}</strong></span>
+            <span><small>Toplam faiz</small><strong>${moneyShort(loan.totalInterest)}</strong></span>
+            <span><small>${loan.taxRate > 0 ? 'KKDF + BSMV' : 'Vergi'}</small><strong>${moneyShort(loan.totalTax)}</strong></span>
+            ${loan.contribution > 0 && html`<em>Katkı (firma öder): ${moneyShort(loan.contribution)}</em>`}
+          </div>
+          <${OutlineButton} cls="full" icon="table" color="var(--teal)" onClick=${() => app.sheet(html`<${LoanSheet} loan=${loan} start=${input.startDate} onClose=${app.closeSheet} />`)}>Kredi ödeme planı</${OutlineButton}>`}
+        ${noTerm(input) && html`<p class="caption teal">Kredi kalanı karşılıyor: firma vadesi yok, plan peşinat + kredi (+ ara ödemeler).</p>`}`}
+    </div>`;
+}
+
 // --- Oluşan plan ---
 
 function ResultPanel({ plan, a }) {
@@ -266,9 +345,16 @@ function ResultPanel({ plan, a }) {
     <div class="pill-row"><${BaseRatePill} compact /><span class="caption">NBD bu oranla · satıra dokun: düzenle</span></div>
     <div class="ptable">
       <div class="pt-head"><span class="c-no">Sıra</span><span class="c-date">Tarih</span><span class="c-amt">Tutar</span><span class="c-pv">NBD</span><span class="c-lock" /></div>
-      ${rows.map((p) => html`<${TableRow} key=${p.id} p=${p} start=${start} pv=${a.pv(p)} onClick=${() => editRow(p)} onLock=${() => ops.toggleLock(p.id)} />`)}
+      ${rows.map((p) => html`<${TableRow} key=${p.id} p=${p} start=${start} pv=${a.pv(p)} onClick=${() => p.kind !== Kind.CREDIT && editRow(p)} onLock=${() => p.kind !== Kind.CREDIT && ops.toggleLock(p.id)} />`)}
       <div class="pt-total"><span class="c-no">Toplam</span><span class="c-date" /><span class="c-amt">${money(a.total)}</span><span class="c-pv">${moneyShort(a.pvAtBase)}</span><span class="c-lock" /></div>
-    </div>`;
+    </div>
+    ${a.loan && html`
+      <button class="card loan-card" onClick=${() => app.sheet(html`<${LoanSheet} loan=${a.loan} start=${start} onClose=${app.closeSheet} />`)}>
+        <span class="icon-tile tone-teal"><${Icon} name="bank" size=${22} /></span>
+        <span class="grow"><span class="row-title">Banka kredisi · ${moneyShort(a.loan.principal)}</span>
+          <span class="caption">${a.loan.months} × ${money(a.loan.payment)} · aylık ${percent(a.loan.rate)}${a.loan.taxRate > 0 ? ` (vergili ${percent(a.loan.effectiveRate)})` : ''} · kredi ödeme planı için dokun</span></span>
+        <${Icon} name="forward" size=${18} />
+      </button>`}`;
 }
 
 /** Peşin satış: ödenecek tutar kartı ve tek satırlık tablo. */
@@ -301,9 +387,13 @@ function CostCard({ a, onClick }) {
   const facts = [['Liste fiyatı', moneyShort(a.listPrice)]];
   if (a.basePrice !== a.listPrice) facts.push(['Kampanyalı fiyat', moneyShort(a.basePrice)]);
   if (down > 0) facts.push(['Peşinat', moneyShort(down)]);
+  if (a.loan) facts.push(['Banka kredisi', moneyShort(a.loan.principal)]);
   if (interims.length) facts.push(['Ara ödemeler', interims.every((r) => r.amount === interims[0].amount) ? `${interims.length} × ${moneyShort(interims[0].amount)}` : `${interims.length} · ${moneyShort(interims.reduce((s, r) => s + r.amount, 0))}`]);
-  facts.push([a.installmentCount > 0 ? `${a.installmentCount} × taksit` : 'Taksit', a.installment != null ? money(a.installment) : '—']);
+  // Firma vadesi yoksa (kredi kalanı karşılıyor) taksit satırı yok.
+  if (a.installmentCount > 0) facts.push([`${a.installmentCount} × taksit`, a.installment != null ? money(a.installment) : '—']);
   facts.push(['Toplam ödeme', moneyShort(a.total)]);
+  // Katkılı kredi: yalnız kullanıcıya (müşteri PDF'inde yok).
+  if (a.contribution > 0) facts.push(['Kredi katkısı', '−' + moneyShort(a.contribution)]);
   return html`
     <button class="cost-card grad-logo" onClick=${onClick}>
       <div class="cc-top">
@@ -316,14 +406,14 @@ function CostCard({ a, onClick }) {
 }
 
 function TableRow({ p, start, pv, onClick, onLock }) {
-  const cls = p.kind === Kind.DOWN ? 'down' : p.kind === Kind.INTERIM ? 'interim' : p.kind === Kind.GRACE ? 'grace' : p.manual ? 'manual' : 'inst';
-  const label = p.kind === Kind.DOWN ? 'Peşinat' : p.kind === Kind.INTERIM ? `${p.month}. Ay · ara` : `${p.month}. Ay`;
+  const cls = p.kind === Kind.DOWN ? 'down' : p.kind === Kind.CREDIT ? 'credit' : p.kind === Kind.INTERIM ? 'interim' : p.kind === Kind.GRACE ? 'grace' : p.manual ? 'manual' : 'inst';
+  const label = p.kind === Kind.DOWN ? 'Peşinat' : p.kind === Kind.CREDIT ? 'Banka kredisi' : p.kind === Kind.INTERIM ? `${p.month}. Ay · ara` : `${p.month}. Ay`;
   return html`
     <div class=${'pt-row ' + cls + (p.locked ? ' locked' : '')} onClick=${onClick} role="button" tabindex="0" onKeyDown=${(e) => e.key === 'Enter' && onClick()}>
       <span class="c-no"><strong>${label}</strong>${p.shiftDays !== 0 && html`<${Badge} tone="amber">${dayShift(p.shiftDays)}</${Badge}>`}</span>
       <span class="c-date">${dateMid(payDate(p, start))}${p.kind === Kind.GRACE ? ' · ödemesiz' : ''}${p.shiftDays !== 0 ? html`<em> p ${editable(period(p))}</em>` : ''}</span>
       <span class="c-amt">${money(p.amount)}</span>
       <span class="c-pv">${moneyShort(pv)}</span>
-      <button class="c-lock icon-btn" title=${p.locked ? 'Kilitli, kilidi aç' : 'Serbest, kilitle'} onClick=${(e) => { e.stopPropagation(); onLock(); }}><${Icon} name=${p.locked ? 'lock' : 'unlock'} size=${17} /></button>
+      ${p.kind === Kind.CREDIT ? html`<span class="c-lock" />` : html`<button class="c-lock icon-btn" title=${p.locked ? 'Kilitli, kilidi aç' : 'Serbest, kilitle'} onClick=${(e) => { e.stopPropagation(); onLock(); }}><${Icon} name=${p.locked ? 'lock' : 'unlock'} size=${17} /></button>`}
     </div>`;
 }

@@ -66,21 +66,42 @@ function PlanDoc({ plan, a, fields, rep }) {
         <${Box} label="Liste fiyatı" value=${moneyShort(a.listPrice)} tone="navy" />
         ${a.basePrice !== a.listPrice && html`<${Box} label="Kampanyalı fiyat" value=${moneyShort(a.basePrice)} tone="blue" />`}
         ${down > 0 && html`<${Box} label="Peşinat" value=${moneyShort(down)} tone="navy" />`}
+        ${a.loan && html`<${Box} label="Banka kredisi" value=${moneyShort(a.loan.principal)} tone="teal" />`}
         ${interims.length > 0 && html`<${Box} label="Ara ödemeler" value=${`${interims.length} · ${moneyShort(interims.reduce((s, r) => s + r.amount, 0))}`} tone="teal" />`}
-        <${Box} label=${`${a.installmentCount} × taksit`} value=${a.installment != null ? money(a.installment) : '—'} tone="blue" />
+        ${a.installmentCount > 0 && html`<${Box} label=${`${a.installmentCount} × taksit`} value=${a.installment != null ? money(a.installment) : '—'} tone="blue" />`}
         <${Box} label="Toplam ödeme" value=${moneyShort(a.total)} tone="blue" />
         ${showCost && html`<div class="pr-box cost grad-logo"><span>Maliyet oranı</span><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong><em>Baz oran ${percent(a.baseRate)} · NBD ${moneyShort(a.pvAtBase)}</em></div>`}
       </div>
       <table class="pr-table">
         <thead class="grad-logo"><tr><th>Sıra</th><th>Tarih</th><th class="num">Tutar</th>${showCost && html`<th class="num">NBD</th>`}</tr></thead>
         <tbody>
-          ${a.rows.map((p) => html`<tr class=${p.kind === Kind.DOWN ? 'down' : p.kind === Kind.INTERIM ? 'interim' : p.kind === Kind.GRACE ? 'grace' : ''}>
-            <td>${p.kind === Kind.DOWN ? 'Peşinat' : p.kind === Kind.INTERIM ? `${p.month}. Ay · ara ödeme` : p.kind === Kind.GRACE ? `${p.month}. Ay · ödemesiz` : `${p.month}. Ay`}</td>
+          ${a.rows.map((p) => html`<tr class=${p.kind === Kind.DOWN ? 'down' : p.kind === Kind.INTERIM || p.kind === Kind.CREDIT ? 'interim' : p.kind === Kind.GRACE ? 'grace' : ''}>
+            <td>${p.kind === Kind.DOWN ? 'Peşinat' : p.kind === Kind.CREDIT ? 'Banka kredisi' : p.kind === Kind.INTERIM ? `${p.month}. Ay · ara ödeme` : p.kind === Kind.GRACE ? `${p.month}. Ay · ödemesiz` : `${p.month}. Ay`}</td>
             <td>${dateMid(payDate(p, start))}</td><td class="num">${money(p.amount)}</td>${showCost && html`<td class="num">${moneyShort(a.pv(p))}</td>`}</tr>`)}
         </tbody>
         <tfoot><tr><td>Toplam</td><td /><td class="num">${money(a.total)}</td>${showCost && html`<td class="num">${moneyShort(a.pvAtBase)}</td>`}</tr></tfoot>
       </table>
+      ${a.loan && html`<${LoanPart} loan=${a.loan} start=${plan.input.startDate} />`}
     </div>`;
+}
+
+/** Banka Kredisi Ödeme Planı bölümü (müşteri bilgisi): katkı ve bankanın oranı yazılmaz. */
+function LoanPart({ loan, start }) {
+  const taxed = loan.taxRate > 0;
+  return html`
+    <h2 class="pr-h2">Banka Kredisi Ödeme Planı</h2>
+    <div class="pr-boxes">
+      <${Box} label="Kredi tutarı" value=${moneyShort(loan.principal)} tone="teal" />
+      <${Box} label="Vade" value=${`${loan.months} ay`} tone="teal" />
+      <${Box} label="Aylık oran" value=${percent(loan.rate) + (taxed ? ` (vergili ${percent(loan.effectiveRate)})` : '')} tone="teal" />
+      <${Box} label="Aylık taksit" value=${money(loan.payment)} tone="teal" />
+      <${Box} label="Toplam geri ödeme" value=${moneyShort(loan.totalPayment)} tone="teal" />
+    </div>
+    <table class="pr-table loan">
+      <thead class="grad-logo"><tr><th>No</th><th>Tarih</th><th class="num">Taksit</th><th class="num">Anapara</th><th class="num">Faiz</th>${taxed && html`<th class="num">Vergi</th>`}<th class="num">Kalan</th></tr></thead>
+      <tbody>${loan.rows.map((r) => html`<tr class="interim"><td>${r.month}</td><td>${dateMid(DateX.plusMonths(start, r.month))}</td><td class="num">${money(r.payment)}</td><td class="num">${money(r.principal)}</td><td class="num">${money(r.interest)}</td>${taxed && html`<td class="num">${money(r.tax)}</td>`}<td class="num">${money(r.balance)}</td></tr>`)}</tbody>
+      <tfoot><tr><td>Toplam</td><td /><td class="num">${money(loan.totalPayment)}</td><td class="num">${money(loan.principal)}</td><td class="num">${money(loan.totalInterest)}</td>${taxed && html`<td class="num">${money(loan.totalTax)}</td>`}<td /></tr></tfoot>
+    </table>`;
 }
 
 function PayTable({ rows, start, rate, grad }) {

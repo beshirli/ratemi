@@ -12,6 +12,9 @@ import { loadSettings, saveSettings, loadRecords, saveRecords, newId, backupJson
 
 const emptyOffer = () => ({ cashPrice: 0, down: 0, blocks: [], singles: [] });
 
+/** Ödeme planında planın kendisinin gösterildiği son adım. */
+export const PLAN_STEP = 5;
+
 function autoName(i) {
   if (isCash(i)) return `${moneyShort(i.listPrice)} – peşin satış`;
   const down = i.down.amount <= 0 ? 'peşinatsız' : i.down.percent ? `%${editable(i.down.amount)} peşinat` : `${moneyShort(i.down.amount)} peşinat`;
@@ -24,7 +27,7 @@ function App() {
   const [stack, setStack] = useState(['home']);
   const [plan, setPlan] = useState(null);
   const [dirty, setDirty] = useState(false);
-  // Ödeme planı adımı: 0 Ürün, 1 Peşinat, 2 Vade, 3 Oran, 4 Plan.
+  // Ödeme planı adımı: 0 Ürün, 1 Peşinat, 2 Kredi, 3 Vade, 4 Oran, 5 Plan (PLAN_STEP).
   const [planStep, setPlanStepState] = useState(0);
   const [offer, setOffer] = useState(null);
   const [conversion, setConversion] = useState(null);
@@ -66,7 +69,7 @@ function App() {
     const s = state.current;
     if (s.sheetEl) { setSheetEl(null); return; }
     // Girdi adımlarında geri bir önceki adıma gider; plandan (son adım) ekran kapanır.
-    if (s.stack[s.stack.length - 1] === 'plan' && s.planStep >= 1 && s.planStep <= 3) { setPlanStepState(s.planStep - 1); return; }
+    if (s.stack[s.stack.length - 1] === 'plan' && s.planStep >= 1 && s.planStep < PLAN_STEP) { setPlanStepState(s.planStep - 1); return; }
     if (s.stack.length > 1) {
       const next = s.stack.slice(0, -1);
       setStack(next);
@@ -102,7 +105,7 @@ function App() {
 
   /** Adım değişir; ileri gidişler geçmişe yazılır (telefonun geri hareketi bir önceki adıma döner). */
   const setPlanStep = (n) => {
-    if (n > state.current.planStep && n <= 3) pushHistory();
+    if (n > state.current.planStep && n < PLAN_STEP) pushHistory();
     setPlanStepState(n);
     document.querySelector('.main')?.scrollTo(0, 0); scrollTo(0, 0);
   };
@@ -231,7 +234,7 @@ function App() {
 
   const openPlan = (rec) => {
     loadPlan({ id: rec.id, name: rec.name, ...rec.data }, false);
-    setPlanStepState(4);
+    setPlanStepState(PLAN_STEP);
     push('plan');
   };
 
@@ -287,7 +290,7 @@ function App() {
       undoStack.current = []; setCanUndo(false);
       setStack((st) => [...st.filter((x) => x === 'home' || x === 'templates'), 'plan']);
       loadPlan(p, true);
-      setPlanStepState(4);
+      setPlanStepState(PLAN_STEP);
     }} />`);
   const renameTemplate = (rec) => sheet(html`<${NameSheet} title="Şablonun adı" value=${rec.name} button="Tamam" onClose=${closeSheet}
     onDone=${(name) => { closeSheet(); upsert({ ...rec, name }); }} />`);

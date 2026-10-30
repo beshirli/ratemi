@@ -1,7 +1,7 @@
 // Pencereler: baz oran, tutar, blok, tek ödeme, satır düzenleme, hedef maliyet, ad, çakışma, şablondan plan, PDF.
 import { html, useState } from '../vendor/preact-htm.js';
 import { Finance, Kind, RowEdits, sortRows, payDate, DateX, Solve, valueOf } from './finance.js';
-import { money, moneyShort, percent, dateShort, dayShift, editable } from './format.js';
+import { money, moneyShort, percent, dateShort, dateMid, dayShift, editable } from './format.js';
 import {
   Sheet, SheetTitle, GradHeader, GradientButton, OutlineButton, NumberField, FieldBox, Chip, Segmented,
   SwitchRow, StepperField, DateRow, Badge, useApp,
@@ -260,5 +260,23 @@ export function ShareSheet({ onPrint, onClose, kind = 'plan' }) {
         <div class="share-grid g2"><${T} k="type" label="Daire tipi" /><${T} k="area" label="Brüt m²" mode="decimal" /></div>
         <div class="card flat"><${SwitchRow} title="Maliyet analizini dahil et" caption="NBD, baz oran ve maliyet oranı" checked=${f.analysis !== false} onChange=${(v) => setF({ ...f, analysis: v })} /></div>`}
       <p class="caption">Hazırlayan: ${app.settings.salesRep || '— (Ayarlar › PDF)'}</p>
+    </${Sheet}>`;
+}
+
+/** Kredi ödeme planı (bankaların bastığı gibi): no, tarih, taksit, anapara, faiz (+ vergi), kalan. Katkı yok. */
+export function LoanSheet({ loan, start, onClose }) {
+  const taxed = loan.taxRate > 0;
+  return html`
+    <${Sheet} onClose=${onClose} wide>
+      <div class="sheet-grad grad-logo">
+        <strong>Kredi ödeme planı</strong>
+        <span>${moneyShort(loan.principal)} · ${loan.months} ay · aylık ${percent(loan.rate)}${taxed ? ` (vergili ${percent(loan.effectiveRate)})` : ''}</span>
+        <span>Taksit ${money(loan.payment)} · toplam ${moneyShort(loan.totalPayment)}</span>
+      </div>
+      <div class="loan-table">
+        <div class="lt-head"><span>No</span><span>Tarih</span><span>Taksit</span><span>Anapara</span><span>${taxed ? 'Faiz + vergi' : 'Faiz'}</span><span>Kalan</span></div>
+        ${loan.rows.map((r) => html`<div class="lt-row" key=${r.month}><span>${r.month}</span><span>${dateMid(DateX.plusMonths(start, r.month))}</span>
+          <span><strong>${moneyShort(r.payment)}</strong></span><span>${moneyShort(r.principal)}</span><span>${moneyShort(r.interest + r.tax)}</span><span>${moneyShort(r.balance)}</span></div>`)}
+      </div>
     </${Sheet}>`;
 }

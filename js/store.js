@@ -12,6 +12,8 @@ export const defaultSettings = () => ({
   discountPercent: 5,
   theme: 'system',
   salesRep: '',
+  // Ödeme planında banka kredisi adımı açık mı (Ayarlar › Ödeme planı).
+  creditEnabled: true,
 });
 
 function read(key, fallback) {

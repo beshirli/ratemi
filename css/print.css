@@ -42,3 +42,6 @@ body { background: #fff !important; color: #141A2E; font: 10.5pt/1.35 'Inter', s
 .pr-table tr.grace td:first-child { box-shadow: inset 4px 0 #F59E0B; }
 .pr-table tfoot td { font-weight: 700; background: #EEF1F8; border-top: 2px solid #C9D2E6; }
 .pr-table tr { break-inside: avoid; }
+
+.pr-h2 { font-size: 13pt; color: #1C2B6E; margin: 16pt 0 6pt; break-before: auto; }
+.pr-table.loan td, .pr-table.loan th { font-size: 8pt; }

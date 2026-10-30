@@ -1,5 +1,5 @@
 // Android FinanceTest'teki örnek rakamlar: node test/finance.test.mjs
-import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice, Solve, isCash } from '../js/finance.js';
+import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice, Solve, isCash, BankLoan, noTerm } from '../js/finance.js';
 import { parseNumber } from '../js/format.js';
 let fails = 0;
 const eq = (name, exp, got, tol = 1e-9) => { const ok = Math.abs(exp - got) <= tol; if (!ok) fails++; console.log(`${ok ? 'OK  ' : 'FAIL'} ${name}: ${got} (beklenen ${exp})`); };
@@ -53,5 +53,19 @@ eq('peşin satış tek satır', 1, cashA.rows.length);
 eq('peşin satış tutarı', basePrice(cash), cashA.rows[0].amount, 0.001);
 eq('peşin satış maliyeti = iskonto', 0.05, cashA.costRatio, 1e-9);
 eq('kampanyalı fiyat kadar TL peşinat da peşin', 1, isCash({ ...sale, down: { amount: basePrice(cash), percent: false } }) ? 1 : 0);
+// Banka kredisi (Android testleriyle aynı rakamlar).
+const kInput = { ...sale, listPrice: 2000000, discountOn: false, down: { amount: 0, percent: true }, interims: [], credit: { amount: { amount: 2000000, percent: false }, months: 60, rate: 0.0099, subsidized: false, bankRate: 0.0099 } };
+const kPlan = BankLoan.plan(kInput, taxes);
+eq('kredi taksiti (2 mn, 60 ay, %0,99)', 44366, kPlan.payment, 5);
+eq('anapara toplamı = kredi', 2000000, kPlan.rows.reduce((s, r) => s + r.principal, 0), 0.01);
+eq('son kalan 0', 0, kPlan.rows[kPlan.rows.length - 1].balance, 0.001);
+const sub = BankLoan.plan({ ...kInput, credit: { ...kInput.credit, subsidized: true, bankRate: 0.035 } }, taxes);
+eq('katkı ≈ 893.000', 893000, sub.contribution, 3000);
+const withK = (pct, bank) => ({ ...sale, credit: { amount: { amount: pct, percent: true }, months: 60, rate: 0.0099, subsidized: bank != null, bankRate: bank ?? 0.0099 } });
+const aK = analyze({ input: withK(30), rows: null, balance: null }, 0.0299, taxes);
+const aS = analyze({ input: withK(30, 0.035), rows: null, balance: null }, 0.0299, taxes);
+eq('katkı maliyete eklenir', aK.costRatio + aS.contribution / sale.listPrice, aS.costRatio, 1e-9);
+const restIn = { ...sale, credit: { amount: { amount: basePrice(sale) * 0.7 - 600000, percent: false }, months: 120, rate: 0.0119, subsidized: false, bankRate: 0.0119 } };
+eq('kredi kalanı karşılıyor: firma vadesi yok', 1, noTerm(restIn) && analyze({ input: restIn, rows: null, balance: null }, 0.0299, taxes).installmentCount === 0 ? 1 : 0);
 console.log(fails ? `${fails} HATA` : 'Tüm testler geçti');
 process.exit(fails ? 1 : 0);
