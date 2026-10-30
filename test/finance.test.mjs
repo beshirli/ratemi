@@ -1,5 +1,5 @@
 // Android FinanceTest'teki örnek rakamlar: node test/finance.test.mjs
-import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice, Solve, isCash, BankLoan, noTerm } from '../js/finance.js';
+import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice, Solve, isCash, BankLoan, noTerm, SavingsFinance } from '../js/finance.js';
 import { parseNumber } from '../js/format.js';
 let fails = 0;
 const eq = (name, exp, got, tol = 1e-9) => { const ok = Math.abs(exp - got) <= tol; if (!ok) fails++; console.log(`${ok ? 'OK  ' : 'FAIL'} ${name}: ${got} (beklenen ${exp})`); };
@@ -67,5 +67,15 @@ const aS = analyze({ input: withK(30, 0.035), rows: null, balance: null }, 0.029
 eq('katkı maliyete eklenir', aK.costRatio + aS.contribution / sale.listPrice, aS.costRatio, 1e-9);
 const restIn = { ...sale, credit: { amount: { amount: basePrice(sale) * 0.7 - 600000, percent: false }, months: 120, rate: 0.0119, subsidized: false, bankRate: 0.0119 } };
 eq('kredi kalanı karşılıyor: firma vadesi yok', 1, noTerm(restIn) && analyze({ input: restIn, rows: null, balance: null }, 0.0299, taxes).installmentCount === 0 ? 1 : 0);
+// Tasarruf finansmanı (belgedeki örnek: 10 mn, 2 mn peşinat, 60 ay, %7).
+const svIn = { ...sale, listPrice: 10000000, discountOn: false, down: { amount: 0, percent: true }, interims: [],
+  savings: { amount: { amount: 10000000, percent: false }, down: 2000000, months: 60, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } };
+const sv = SavingsFinance.plan(svIn);
+eq('tasarruf taksiti', 133333.33, sv.firstPayment, 0.01);
+eq('tahsisat 19. ay (birikim %45)', 19, sv.allocationMonth);
+eq('organizasyon ücreti', 700000, sv.rows.reduce((t, r) => t + r.fee, 0), 0.01);
+eq('birikim = sözleşme', 10000000, sv.rows[sv.rows.length - 1].cumulative, 0.001);
+const svA = analyze({ input: svIn, rows: null, balance: null }, 0.0299, taxes);
+eq('tahsisat satırı firmaya', 1, svA.rows.filter((r) => r.kind === Kind.ALLOCATION && r.month === 19 && Math.abs(r.amount - 10000000) < 0.01).length);
 console.log(fails ? `${fails} HATA` : 'Tüm testler geçti');
 process.exit(fails ? 1 : 0);

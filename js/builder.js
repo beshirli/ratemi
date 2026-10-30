@@ -9,14 +9,14 @@ import {
   Icon, IconButton, GradientButton, OutlineButton, TextAction, Chip, Segmented, SwitchRow, Badge,
   NumberField, FieldBox, AmountPercentFields, StepperField, TopBar, useApp,
 } from './ui.js';
-import { RateSheet, BlockSheet, NameSheet, TargetCostSheet, RowEditSheet, ShareSheet, LoanSheet } from './sheets.js';
+import { RateSheet, BlockSheet, NameSheet, TargetCostSheet, RowEditSheet, ShareSheet, LoanSheet, SavingsWizard, SavingsSheet } from './sheets.js';
 import { BaseRatePill } from './screens.js';
 
 const priceStep = (v) => (v >= 10e6 ? 50000 : v >= 1e6 ? 10000 : v >= 1e5 ? 1000 : v >= 1e4 ? 100 : 10);
 const yearsText = (m) => (m % 12 === 0 ? `${m / 12} yıl` : m > 12 ? `${Math.floor(m / 12)} yıl ${m % 12} ay` : '');
 const TYPES = [['HOUSING', 'Konut', false], ['VEHICLE', 'Taşıt', true], ['PERSONAL', 'İhtiyaç', true]];
-const STEPS = ['Ürün', 'Peşinat', 'Kredi', 'Vade', 'Oran', 'Plan'];
-const PLAN = 5;
+const STEPS = ['Ürün', 'Peşinat', 'Kredi', 'Tahsisat', 'Vade', 'Oran', 'Plan'];
+const PLAN = 6;
 const WIDE = '(min-width: 1100px)';
 
 /** Ekran masaüstü genişliğinde mi (pencere boyutu değişince güncellenir). */
@@ -52,8 +52,14 @@ export function PlanBuilderScreen() {
   // Peşin satışta vade ve oran adımları yok: Ürün → Peşinat → Plan.
   const cash = isCash(input);
   // Peşin satışta kredi / vade / oran yok; kredi kalanı karşılıyorsa vade / oran yok; Ayarlar'da kredi kapalıysa Kredi adımı yok.
-  const visible = cash ? [0, 1, PLAN] : noTerm(input) ? [0, 1, 2, PLAN]
-    : app.settings.creditEnabled === false && !input.credit ? [0, 1, 3, 4, PLAN] : [0, 1, 2, 3, 4, PLAN];
+  // Ayarlar'da kredi / tahsisat kapalıysa o adım yok (girilmiş planda kaldırılabilsin diye kalır).
+  const visible = cash ? [0, 1, PLAN] : [
+    0, 1,
+    ...(app.settings.creditEnabled !== false || input.credit ? [2] : []),
+    ...(app.settings.savingsEnabled !== false || input.savings ? [3] : []),
+    ...(noTerm(input) ? [] : [4, 5]),
+    PLAN,
+  ];
   const step = visible.includes(app.planStep) ? app.planStep : PLAN;
   const goStep = app.setPlanStep;
   const at = Math.max(0, visible.indexOf(step));
@@ -191,6 +197,7 @@ function InputsPanel({ input, set, step, number }) {
     </div>`,
 
     () => html`<${CreditStep} input=${input} set=${set} no=${no} />`,
+    () => html`<${SavingsStep} input=${input} set=${set} no=${no} />`,
 
     () => html`
     <div class="card b-sec">
@@ -305,12 +312,49 @@ function CreditStep({ input, set, no }) {
           <div class="loan-sum">
             <span><small>Aylık taksit</small><strong>${money(loan.payment)}</strong></span>
             <span><small>Toplam geri ödeme</small><strong>${moneyShort(loan.totalPayment)}</strong></span>
-            <span><small>Toplam faiz</small><strong>${moneyShort(loan.totalInterest)}</strong></span>
+            <span><small>Toplam kâr payı</small><strong>${moneyShort(loan.totalInterest)}</strong></span>
             <span><small>${loan.taxRate > 0 ? 'KKDF + BSMV' : 'Vergi'}</small><strong>${moneyShort(loan.totalTax)}</strong></span>
             ${loan.contribution > 0 && html`<em>Katkı (firma öder): ${moneyShort(loan.contribution)}</em>`}
           </div>
           <${OutlineButton} cls="full" icon="table" color="var(--teal)" onClick=${() => app.sheet(html`<${LoanSheet} loan=${loan} start=${input.startDate} onClose=${app.closeSheet} />`)}>Kredi ödeme planı</${OutlineButton}>`}
         ${noTerm(input) && html`<p class="caption teal">Kredi kalanı karşılıyor: firma vadesi yok, plan peşinat + kredi (+ ara ödemeler).</p>`}`}
+    </div>`;
+}
+
+// --- Tahsisat adımı ---
+
+/** Tasarruf finansmanı: özet, sihirbaz ve tasarruf ödeme planı. Tahsisatta sözleşme tutarının tamamı firmaya geçer. */
+function SavingsStep({ input, set, no }) {
+  const app = useApp();
+  const base = basePrice(input);
+  const plan = app.analyzePlan(app.plan).savings;
+  const rest = Math.max(0, base - valueOf(input.down, base) - creditAmount(input) - input.interims.reduce((s, x) => s + valueOf(x.value, base), 0));
+  const wizard = (inp) => app.sheet(html`<${SavingsWizard} input=${inp} rest=${rest} onClose=${app.closeSheet}
+    onApply=${(sv) => { app.closeSheet(); set({ savings: sv }); }} />`);
+  const turnOn = () => {
+    const sv = { amount: { amount: Math.round(rest), percent: false }, down: 0, months: input.loanType === 'HOUSING' ? 120 : 60, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null };
+    set({ savings: sv });
+    wizard({ ...input, savings: sv });
+  };
+  const day = plan ? DateX.plusMonths(input.startDate, plan.allocationMonth) : null;
+  return html`
+    <div class="card b-sec">
+      <div class="b-head">${no}Tahsisat (tasarruf finansmanı)</div>
+      <${SwitchRow} title="Tahsisat kullan" caption="Tasarruf şirketi tahsisat ayında sözleşme tutarının tamamını firmaya tek seferde öder." checked=${!!input.savings}
+        onChange=${(on) => (on ? turnOn() : set({ savings: null }))} />
+      ${input.savings && plan && html`
+        <div class="loan-sum">
+          <em class="teal">Tahsisat ${plan.allocationMonth}. ay · ${dateMid(day)}</em>
+          <span class="wide caption">${plan.manual ? `Elle belirlendi (kurala göre ${plan.computedMonth}. ay)` : "Birikim %45 ve vadenin %40'ı kuralıyla hesaplandı"}</span>
+          <span><small>Sözleşme tutarı</small><strong>${moneyShort(plan.amount)}</strong></span>
+          <span><small>${plan.growth > 0 ? 'İlk taksit (artan)' : 'Aylık taksit'}</small><strong>${money(plan.firstPayment)}</strong></span>
+          <span><small>Şirkete peşinat</small><strong>${moneyShort(plan.down)}</strong></span>
+          <span><small>Organizasyon ücreti</small><strong>${moneyShort(plan.fee)}</strong></span>
+        </div>
+        ${plan.warnings.map((w) => html`<p class="caption amber">⚠ ${w}</p>`)}
+        <${GradientButton} cls="full" icon="sliders" onClick=${() => wizard(input)}>Sihirbazla hesapla</${GradientButton}>
+        <${OutlineButton} cls="full" icon="table" color="var(--teal)" onClick=${() => app.sheet(html`<${SavingsSheet} plan=${plan} start=${input.startDate} onClose=${app.closeSheet} />`)}>Tasarruf ödeme planı</${OutlineButton}>
+        ${noTerm(input) && html`<p class="caption teal">Kalan tutar karşılanıyor: firma vadesi yok.</p>`}`}
     </div>`;
 }
 
@@ -345,7 +389,7 @@ function ResultPanel({ plan, a }) {
     <div class="pill-row"><${BaseRatePill} compact /><span class="caption">NBD bu oranla · satıra dokun: düzenle</span></div>
     <div class="ptable">
       <div class="pt-head"><span class="c-no">Sıra</span><span class="c-date">Tarih</span><span class="c-amt">Tutar</span><span class="c-pv">NBD</span><span class="c-lock" /></div>
-      ${rows.map((p) => html`<${TableRow} key=${p.id} p=${p} start=${start} pv=${a.pv(p)} onClick=${() => p.kind !== Kind.CREDIT && editRow(p)} onLock=${() => p.kind !== Kind.CREDIT && ops.toggleLock(p.id)} />`)}
+      ${rows.map((p) => html`<${TableRow} key=${p.id} p=${p} start=${start} pv=${a.pv(p)} onClick=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && editRow(p)} onLock=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && ops.toggleLock(p.id)} />`)}
       <div class="pt-total"><span class="c-no">Toplam</span><span class="c-date" /><span class="c-amt">${money(a.total)}</span><span class="c-pv">${moneyShort(a.pvAtBase)}</span><span class="c-lock" /></div>
     </div>
     ${a.loan && html`
@@ -353,6 +397,13 @@ function ResultPanel({ plan, a }) {
         <span class="icon-tile tone-teal"><${Icon} name="bank" size=${22} /></span>
         <span class="grow"><span class="row-title">Banka kredisi · ${moneyShort(a.loan.principal)}</span>
           <span class="caption">${a.loan.months} × ${money(a.loan.payment)} · aylık ${percent(a.loan.rate)}${a.loan.taxRate > 0 ? ` (vergili ${percent(a.loan.effectiveRate)})` : ''} · kredi ödeme planı için dokun</span></span>
+        <${Icon} name="forward" size=${18} />
+      </button>`}
+    ${a.savings && html`
+      <button class="card loan-card" onClick=${() => app.sheet(html`<${SavingsSheet} plan=${a.savings} start=${start} onClose=${app.closeSheet} />`)}>
+        <span class="icon-tile tone-teal"><${Icon} name="clock" size=${22} /></span>
+        <span class="grow"><span class="row-title">Tahsisat · ${moneyShort(a.savings.amount)}</span>
+          <span class="caption">${a.savings.allocationMonth}. ay (${dateMid(DateX.plusMonths(start, a.savings.allocationMonth))}) · ${a.savings.months} × ${moneyShort(a.savings.firstPayment)}${a.savings.growth > 0 ? ' (artan)' : ''} · tasarruf planı için dokun</span></span>
         <${Icon} name="forward" size=${18} />
       </button>`}`;
 }
@@ -388,6 +439,7 @@ function CostCard({ a, onClick }) {
   if (a.basePrice !== a.listPrice) facts.push(['Kampanyalı fiyat', moneyShort(a.basePrice)]);
   if (down > 0) facts.push(['Peşinat', moneyShort(down)]);
   if (a.loan) facts.push(['Banka kredisi', moneyShort(a.loan.principal)]);
+  if (a.savings) facts.push([`Tahsisat (${a.savings.allocationMonth}. ay)`, moneyShort(a.savings.amount)]);
   if (interims.length) facts.push(['Ara ödemeler', interims.every((r) => r.amount === interims[0].amount) ? `${interims.length} × ${moneyShort(interims[0].amount)}` : `${interims.length} · ${moneyShort(interims.reduce((s, r) => s + r.amount, 0))}`]);
   // Firma vadesi yoksa (kredi kalanı karşılıyor) taksit satırı yok.
   if (a.installmentCount > 0) facts.push([`${a.installmentCount} × taksit`, a.installment != null ? money(a.installment) : '—']);
@@ -406,14 +458,14 @@ function CostCard({ a, onClick }) {
 }
 
 function TableRow({ p, start, pv, onClick, onLock }) {
-  const cls = p.kind === Kind.DOWN ? 'down' : p.kind === Kind.CREDIT ? 'credit' : p.kind === Kind.INTERIM ? 'interim' : p.kind === Kind.GRACE ? 'grace' : p.manual ? 'manual' : 'inst';
-  const label = p.kind === Kind.DOWN ? 'Peşinat' : p.kind === Kind.CREDIT ? 'Banka kredisi' : p.kind === Kind.INTERIM ? `${p.month}. Ay · ara` : `${p.month}. Ay`;
+  const cls = p.kind === Kind.DOWN ? 'down' : p.kind === Kind.CREDIT || p.kind === Kind.ALLOCATION ? 'credit' : p.kind === Kind.INTERIM ? 'interim' : p.kind === Kind.GRACE ? 'grace' : p.manual ? 'manual' : 'inst';
+  const label = p.kind === Kind.DOWN ? 'Peşinat' : p.kind === Kind.CREDIT ? 'Banka kredisi' : p.kind === Kind.ALLOCATION ? `${p.month}. Ay · tahsisat` : p.kind === Kind.INTERIM ? `${p.month}. Ay · ara` : `${p.month}. Ay`;
   return html`
     <div class=${'pt-row ' + cls + (p.locked ? ' locked' : '')} onClick=${onClick} role="button" tabindex="0" onKeyDown=${(e) => e.key === 'Enter' && onClick()}>
       <span class="c-no"><strong>${label}</strong>${p.shiftDays !== 0 && html`<${Badge} tone="amber">${dayShift(p.shiftDays)}</${Badge}>`}</span>
       <span class="c-date">${dateMid(payDate(p, start))}${p.kind === Kind.GRACE ? ' · ödemesiz' : ''}${p.shiftDays !== 0 ? html`<em> p ${editable(period(p))}</em>` : ''}</span>
       <span class="c-amt">${money(p.amount)}</span>
       <span class="c-pv">${moneyShort(pv)}</span>
-      ${p.kind === Kind.CREDIT ? html`<span class="c-lock" />` : html`<button class="c-lock icon-btn" title=${p.locked ? 'Kilitli, kilidi aç' : 'Serbest, kilitle'} onClick=${(e) => { e.stopPropagation(); onLock(); }}><${Icon} name=${p.locked ? 'lock' : 'unlock'} size=${17} /></button>`}
+      ${p.kind === Kind.CREDIT || p.kind === Kind.ALLOCATION ? html`<span class="c-lock" />` : html`<button class="c-lock icon-btn" title=${p.locked ? 'Kilitli, kilidi aç' : 'Serbest, kilitle'} onClick=${(e) => { e.stopPropagation(); onLock(); }}><${Icon} name=${p.locked ? 'lock' : 'unlock'} size=${17} /></button>`}
     </div>`;
 }

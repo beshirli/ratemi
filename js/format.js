@@ -4,9 +4,13 @@ import { DateX } from './finance.js';
 const fmt = (digits, min = digits) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: min, maximumFractionDigits: digits });
 const F2 = fmt(2), F0 = fmt(0), FE = fmt(2, 0);
 
-export const money = (v) => (v < 0 ? '−' : '') + '₺' + F2.format(Math.abs(v));
-export const moneyShort = (v) => (v < 0 ? '−' : '') + '₺' + F0.format(Math.round(Math.abs(v)));
-export const percent = (rate, digits = 2) => '%' + fmt(digits).format(rate * 100);
+// Yuvarlanınca sıfır olan küçük eksi değerler ("-0") eksi işaretsiz yazılır.
+export const money = (v) => (Math.round(v * 100) < 0 ? '−' : '') + '₺' + F2.format(Math.abs(v));
+export const moneyShort = (v) => (Math.round(v) < 0 ? '−' : '') + '₺' + F0.format(Math.round(Math.abs(v)));
+export const percent = (rate, digits = 2) => {
+  const p = rate * 100;
+  return '%' + fmt(digits).format(Math.round(p * 10 ** digits) === 0 ? 0 : p);
+};
 export const editable = (v) => FE.format(v);
 
 /** "1.234.567,89" → 1234567.89; boş/hatalı → null. */

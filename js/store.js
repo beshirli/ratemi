@@ -14,6 +14,8 @@ export const defaultSettings = () => ({
   salesRep: '',
   // Ödeme planında banka kredisi adımı açık mı (Ayarlar › Ödeme planı).
   creditEnabled: true,
+  // Ödeme planında tahsisat (tasarruf finansmanı) adımı açık mı.
+  savingsEnabled: true,
 });
 
 function read(key, fallback) {

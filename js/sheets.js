@@ -1,10 +1,10 @@
 // Pencereler: baz oran, tutar, blok, tek ödeme, satır düzenleme, hedef maliyet, ad, çakışma, şablondan plan, PDF.
 import { html, useState } from '../vendor/preact-htm.js';
-import { Finance, Kind, RowEdits, sortRows, payDate, DateX, Solve, valueOf } from './finance.js';
+import { Finance, Kind, RowEdits, sortRows, payDate, DateX, Solve, valueOf, SavingsFinance, basePrice } from './finance.js';
 import { money, moneyShort, percent, dateShort, dateMid, dayShift, editable } from './format.js';
 import {
   Sheet, SheetTitle, GradHeader, GradientButton, OutlineButton, NumberField, FieldBox, Chip, Segmented,
-  SwitchRow, StepperField, DateRow, Badge, useApp,
+  SwitchRow, StepperField, DateRow, Badge, useApp, AmountPercentFields,
 } from './ui.js';
 
 const monthlyFromAnnual = (a) => Math.pow(1 + a, 1 / 12) - 1;
@@ -263,7 +263,7 @@ export function ShareSheet({ onPrint, onClose, kind = 'plan' }) {
     </${Sheet}>`;
 }
 
-/** Kredi ödeme planı (bankaların bastığı gibi): no, tarih, taksit, anapara, faiz (+ vergi), kalan. Katkı yok. */
+/** Kredi ödeme planı (bankaların bastığı gibi): no, tarih, taksit, anapara, kâr payı (+ vergi), kalan. Katkı yok. */
 export function LoanSheet({ loan, start, onClose }) {
   const taxed = loan.taxRate > 0;
   return html`
@@ -274,9 +274,103 @@ export function LoanSheet({ loan, start, onClose }) {
         <span>Taksit ${money(loan.payment)} · toplam ${moneyShort(loan.totalPayment)}</span>
       </div>
       <div class="loan-table">
-        <div class="lt-head"><span>No</span><span>Tarih</span><span>Taksit</span><span>Anapara</span><span>${taxed ? 'Faiz + vergi' : 'Faiz'}</span><span>Kalan</span></div>
+        <div class="lt-head"><span>No</span><span>Tarih</span><span>Taksit</span><span>Anapara</span><span>${taxed ? 'Kâr payı + vergi' : 'Kâr payı'}</span><span>Kalan</span></div>
         ${loan.rows.map((r) => html`<div class="lt-row" key=${r.month}><span>${r.month}</span><span>${dateMid(DateX.plusMonths(start, r.month))}</span>
           <span><strong>${moneyShort(r.payment)}</strong></span><span>${moneyShort(r.principal)}</span><span>${moneyShort(r.interest + r.tax)}</span><span>${moneyShort(r.balance)}</span></div>`)}
+      </div>
+    </${Sheet}>`;
+}
+
+const WIZ = ['Sözleşme', 'Vade ve ücret', 'Taksit modeli', 'Tahsisat'];
+
+/**
+ * Tahsisat sihirbazı (4 adım): sözleşme tutarı ve şirkete peşinat → vade ve organizasyon ücreti → taksit modeli
+ * (sabit / artan) → tahsisat ayı (kurala göre ya da elle) ve BDDK uyarıları; "Uygula" plana yazar.
+ */
+export function SavingsWizard({ input, rest, onApply, onClose }) {
+  const [page, setPage] = useState(0);
+  const [d, setD] = useState(input.savings);
+  const base = basePrice(input);
+  const p = SavingsFinance.plan({ ...input, savings: d });
+  const amount = p ? p.amount : valueOf(d.amount, base);
+  const housing = input.loanType === 'HOUSING';
+  const up = (patch) => setD({ ...d, ...patch });
+  const r6 = (v) => Math.round(v * 1e6) / 1e6;
+  const stepper = (label, value, caption, minus, plus) => html`
+    <div class="b-ctl"><span class="field-label">${label}</span>
+      <div class="b-stepper"><button class="icon-btn filled" onClick=${minus}>−</button><span class="grace-val">${value}</span><button class="icon-btn filled" onClick=${plus}>+</button></div>
+      ${caption && html`<div class="caption center">${caption}</div>`}</div>`;
+  const pages = [
+    () => html`
+      <p class="caption">Sözleşme tutarı (tahsisatta firmaya gelen) · kampanyalı fiyatın</p>
+      <${AmountPercentFields} value=${d.amount} base=${base} onChange=${(v) => up({ amount: v })} />
+      <${OutlineButton} cls="full" icon="check" color="var(--teal)" onClick=${() => up({ amount: { amount: Math.round(rest), percent: false } })}>Kalanın tamamı (${moneyShort(rest)})</${OutlineButton}>
+      <p class="caption">Müşterinin tasarruf şirketine peşinatı · sözleşme tutarının</p>
+      <${AmountPercentFields} value=${{ amount: d.down, percent: false }} base=${amount} onChange=${(v) => up({ down: Finance.roundKurus(Math.min(Math.max(valueOf(v, amount), 0), amount)) })} />
+      <div class="chips-wrap">${[0, 10, 20, 30, 40].map((x) => html`<${Chip} label=${x === 0 ? 'Peşinatsız' : '%' + x} color="var(--teal)" selected=${Math.abs(d.down - amount * x / 100) < 1} onClick=${() => up({ down: Finance.roundKurus(amount * x / 100) })} />`)}</div>`,
+    () => html`
+      ${stepper('Sözleşme vadesi', `${d.months} ay`, `azami ${housing ? 120 : 60} ay`, () => up({ months: Math.max(2, d.months - 1), allocationMonth: null }), () => up({ months: Math.min(240, d.months + 1), allocationMonth: null }))}
+      <div class="chips-wrap">${(housing ? [36, 48, 60, 84, 96, 120] : [24, 36, 48, 60]).map((m) => html`<${Chip} label=${`${m} ay`} color="var(--teal)" selected=${d.months === m} onClick=${() => up({ months: m, allocationMonth: null })} />`)}</div>
+      ${stepper('Organizasyon ücreti', percent(d.feeRate), `sözleşme tutarının · ${moneyShort(amount * d.feeRate)}`, () => up({ feeRate: Math.max(0, r6(d.feeRate - 0.0025)) }), () => up({ feeRate: r6(d.feeRate + 0.0025) }))}
+      <div class="chips-wrap">${[0.05, 0.06, 0.07, 0.08, 0.10, 0.12].map((x) => html`<${Chip} label=${percent(x, 0)} color="var(--teal)" selected=${Math.abs(d.feeRate - x) < 1e-9} onClick=${() => up({ feeRate: x })} />`)}</div>
+      <p class="caption">Ücretin yarısı peşin; kalanı 2. taksitten itibaren kaç taksitte (en fazla 4)?</p>
+      <${Segmented} options=${['1', '2', '3', '4']} index=${(d.feeInstallments || 4) - 1} onChange=${(i) => up({ feeInstallments: i + 1 })} />`,
+    () => html`
+      <${Segmented} options=${['Sabit taksit', 'Artan taksit']} index=${d.growth > 0 ? 1 : 0} onChange=${(i) => up({ growth: i === 1 ? 0.01 : 0 })} />
+      ${d.growth > 0 && html`
+        ${stepper('Tahsisattan sonra aylık artış', percent(d.growth), 'kira destekli / endeksli model', () => up({ growth: Math.max(0.001, r6(d.growth - 0.001)) }), () => up({ growth: r6(d.growth + 0.001) }))}
+        <div class="chips-wrap">${[0.005, 0.01, 0.015, 0.02].map((g) => html`<${Chip} label=${percent(g, 1)} color="var(--teal)" selected=${Math.abs(d.growth - g) < 1e-9} onClick=${() => up({ growth: g })} />`)}</div>`}
+      ${p && html`<div class="loan-sum">
+        <span><small>${p.growth > 0 ? 'İlk taksit' : 'Aylık taksit'}</small><strong>${money(p.firstPayment)}</strong></span>
+        <span><small>Son taksit</small><strong>${money(p.rows[p.rows.length - 1].saving)}</strong></span>
+        <span class="wide caption">${p.growth > 0 ? `Tahsisata (${p.allocationMonth}. ay) kadar sabit, sonra her ay ${percent(p.growth, 1)} artar.` : '(Sözleşme − peşinat) / vade; her ay aynı.'}</span>
+      </div>`}`,
+    () => p && html`
+      <div class="loan-sum">
+        <span class="wide"><small>Tahsisat ayı</small><strong class="big teal">${p.allocationMonth}. ay · ${dateMid(DateX.plusMonths(input.startDate, p.allocationMonth))}</strong></span>
+        <span class="wide caption">Kural: birikim ≥ %45 ve vadenin ≥ %40'ı (peşinat oranı kadar öne çekilir) → ${p.computedMonth}. ay</span>
+      </div>
+      <${SwitchRow} title="Tahsisat ayını elle belirle" caption="Çekilişli modelde ya da şirketin verdiği tarih farklıysa" checked=${d.allocationMonth != null}
+        onChange=${(on) => up({ allocationMonth: on ? p.computedMonth : null })} />
+      ${d.allocationMonth != null && stepper('Tahsisat ayı', `${p.allocationMonth}. ay`, dateMid(DateX.plusMonths(input.startDate, p.allocationMonth)),
+        () => up({ allocationMonth: Math.max(1, p.allocationMonth - 1) }), () => up({ allocationMonth: Math.min(p.months, p.allocationMonth + 1) }))}
+      <div class="loan-sum">
+        <span><small>Birikim (tahsisatta)</small><strong>${moneyShort(p.savedAtAllocation)}</strong></span>
+        <span><small>Finansman</small><strong>${moneyShort(p.financing)}</strong></span>
+        <span><small>Organizasyon ücreti</small><strong>${moneyShort(p.fee)}</strong></span>
+        <span><small>Müşteri toplamı</small><strong>${moneyShort(p.totalPaid)}</strong></span>
+      </div>
+      ${p.warnings.length ? p.warnings.map((w) => html`<p class="caption amber">⚠ ${w}</p>`) : html`<p class="caption teal">BDDK sınırları içinde.</p>`}`,
+  ];
+  return html`
+    <${Sheet} onClose=${onClose} footer=${html`<div class="btn-row">
+      ${page > 0 && html`<${OutlineButton} icon="back" onClick=${() => setPage(page - 1)}>Geri</${OutlineButton}>`}
+      ${page < 3 ? html`<${GradientButton} cls="grow" trailing="forward" disabled=${!p} onClick=${() => setPage(page + 1)}>İleri</${GradientButton}>`
+        : html`<${GradientButton} cls="grow" icon="check" disabled=${!p} onClick=${() => onApply(d)}>Uygula</${GradientButton}>`}
+    </div>`}>
+      <div class="sheet-grad grad-logo">
+        <strong>Tahsisat sihirbazı</strong>
+        <span>Adım ${page + 1} / 4 · ${WIZ[page]}</span>
+        <div class="wiz-bar">${[0, 1, 2, 3].map((i) => html`<i class=${i <= page ? 'on' : ''} />`)}</div>
+      </div>
+      <div class="wiz-body">${pages[page]()}</div>
+    </${Sheet}>`;
+}
+
+/** Tasarruf ödeme planı: ay, tarih, tasarruf, ücret, birikim; tahsisat ayı vurgulu. */
+export function SavingsSheet({ plan, start, onClose }) {
+  return html`
+    <${Sheet} onClose=${onClose} wide>
+      <div class="sheet-grad grad-logo">
+        <strong>Tasarruf ödeme planı</strong>
+        <span>${moneyShort(plan.amount)} · ${plan.months} ay · tahsisat ${plan.allocationMonth}. ay</span>
+        <span>Organizasyon ücreti ${moneyShort(plan.fee)} · toplam ${moneyShort(plan.totalPaid)}</span>
+      </div>
+      <div class="loan-table">
+        <div class="lt-head sv"><span>Ay</span><span>Tarih</span><span>Tasarruf</span><span>Ücret</span><span>Birikim</span></div>
+        ${plan.rows.map((r) => html`<div class=${'lt-row sv' + (r.allocation ? ' alloc' : '')} key=${r.month}><span>${r.month === 0 ? 'P' : r.month}</span>
+          <span>${dateMid(DateX.plusMonths(start, r.month))}${r.allocation ? ' · tahsisat' : ''}</span>
+          <span><strong>${moneyShort(r.saving)}</strong></span><span>${r.fee > 0 ? moneyShort(r.fee) : '—'}</span><span>${moneyShort(r.cumulative)}</span></div>`)}
       </div>
     </${Sheet}>`;
 }

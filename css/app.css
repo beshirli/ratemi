@@ -405,6 +405,14 @@ body.modal-open { overflow: hidden; }
 .loan-sum strong { font-size: 15px; }
 .loan-sum em { grid-column: span 2; font-style: normal; font-weight: 700; color: var(--amber); }
 .caption.teal { color: var(--teal); }
+.loan-sum .wide, .loan-sum em { grid-column: span 2; }
+.loan-sum em.teal { color: var(--teal); font-size: 17px; }
+.loan-sum strong.big { font-size: 22px; } .loan-sum .teal { color: var(--teal); }
+.wiz-bar { display: flex; gap: 4px; margin-top: 8px; } .wiz-bar i { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.35); } .wiz-bar i.on { background: rgba(255,255,255,.95); }
+.wiz-body { display: flex; flex-direction: column; gap: 10px; }
+.lt-head.sv, .lt-row.sv { grid-template-columns: 30px 1.4fr 1fr 0.9fr 1.1fr; }
+.lt-row.alloc { background: var(--teal-soft) !important; color: var(--teal); font-weight: 700; }
+@media (max-width: 480px) { .lt-head.sv, .lt-row.sv { grid-template-columns: 26px 1fr 0.9fr 1.1fr; } }
 .loan-card { display: flex; align-items: center; gap: 12px; padding: 14px; text-align: left; width: 100%; margin-top: 12px; }
 .sheet-grad { display: flex; flex-direction: column; gap: 2px; color: #fff; border-radius: 18px; padding: 16px; margin-bottom: 10px; }
 .sheet-grad strong { font-size: 19px; } .sheet-grad span { font-size: 13px; opacity: .9; }

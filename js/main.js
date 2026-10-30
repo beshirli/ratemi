@@ -13,7 +13,7 @@ import { loadSettings, saveSettings, loadRecords, saveRecords, newId, backupJson
 const emptyOffer = () => ({ cashPrice: 0, down: 0, blocks: [], singles: [] });
 
 /** Ödeme planında planın kendisinin gösterildiği son adım. */
-export const PLAN_STEP = 5;
+export const PLAN_STEP = 6;
 
 function autoName(i) {
   if (isCash(i)) return `${moneyShort(i.listPrice)} – peşin satış`;
@@ -27,7 +27,7 @@ function App() {
   const [stack, setStack] = useState(['home']);
   const [plan, setPlan] = useState(null);
   const [dirty, setDirty] = useState(false);
-  // Ödeme planı adımı: 0 Ürün, 1 Peşinat, 2 Kredi, 3 Vade, 4 Oran, 5 Plan (PLAN_STEP).
+  // Ödeme planı adımı: 0 Ürün, 1 Peşinat, 2 Kredi, 3 Tahsisat, 4 Vade, 5 Oran, 6 Plan (PLAN_STEP).
   const [planStep, setPlanStepState] = useState(0);
   const [offer, setOffer] = useState(null);
   const [conversion, setConversion] = useState(null);

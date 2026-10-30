@@ -3,7 +3,8 @@
 
 export const DAYS_PER_MONTH = 30;
 // CREDIT: banka kredisi (peşinat gününde firmaya peşin geçen tutar, kilitli).
-export const Kind = { DOWN: 0, INSTALLMENT: 1, INTERIM: 2, GRACE: 3, CREDIT: 4 };
+// ALLOCATION: tasarruf finansmanı tahsisatı (tahsisat ayında sözleşme tutarının tamamı, kilitli).
+export const Kind = { DOWN: 0, INSTALLMENT: 1, INTERIM: 2, GRACE: 3, CREDIT: 4, ALLOCATION: 5 };
 export const LoanType = { HOUSING: 'HOUSING', VEHICLE: 'VEHICLE', PERSONAL: 'PERSONAL' };
 
 // --- Tarih ---
@@ -125,14 +126,102 @@ export function creditAmount(i) {
   return Finance.roundKurus(Math.min(Math.max(valueOf(c.amount, bp), 0), max));
 }
 
-/** Firma vadesi yok: peşinat + kredi + ara ödemeler kampanyalı fiyatı karşılıyor (0,50 TL payla). */
+/** Tasarruf sözleşme tutarı (TL): peşinat ve krediden sonra kalanı aşamaz; peşin satışta 0. input.savings = { amount, down, months, feeRate, feeInstallments, growth, allocationMonth }. */
+export function savingsAmount(i) {
+  const s = i.savings;
+  if (!s || isCash(i)) return 0;
+  const bp = basePrice(i);
+  const max = Math.max(0, bp - valueOf(i.down, bp) - creditAmount(i));
+  return Finance.roundKurus(Math.min(Math.max(valueOf(s.amount, bp), 0), max));
+}
+
+/** Firma vadesi yok: peşinat + kredi + tahsisat + ara ödemeler kampanyalı fiyatı karşılıyor (0,50 TL payla). */
 export function noTerm(i) {
   if (isCash(i)) return false;
-  const k = creditAmount(i);
+  const k = creditAmount(i) + savingsAmount(i);
   if (!(k > 0)) return false;
   const bp = basePrice(i);
   return valueOf(i.down, bp) + k + i.interims.reduce((s, x) => s + valueOf(x.value, bp), 0) >= bp - 0.5;
 }
+
+/**
+ * Tasarruf finansmanı (Android SavingsFinance ile aynı, çekilişsiz model): sabit taksit (S − P) / N ya da tahsisattan
+ * sonra %g artan; tahsisat ayı birikim ≥ %45 (yeni mevzuat) ve süre ≥ N · (0,40 − P / S); organizasyon ücreti S · oran, yarısı peşin,
+ * kalanı 2. taksitten itibaren en fazla 4 eşit taksit. Tahsisatta sözleşme tutarının tamamı firmaya geçer.
+ */
+/** Tahsisat için asgari birikim (yeni mevzuat %45) ve süre (vadenin %40'ı) oranları. */
+export const SAVING_THRESHOLD = 0.45;
+export const TIME_THRESHOLD = 0.40;
+
+export const SavingsFinance = {
+  firstPayment(amount, down, n, growth, alloc) {
+    if (!(growth > 0)) return (amount - down) / n;
+    let after = 0;
+    for (let k = 1; k <= n - alloc; k++) after += Math.pow(1 + growth, k);
+    return (amount - down) / (alloc + after);
+  },
+  schedule(amount, down, n, first, growth, alloc) {
+    let cum = down;
+    const rows = [{ month: 0, saving: down, fee: 0, cumulative: down, allocation: false }];
+    for (let t = 1; t <= n; t++) {
+      const raw = growth > 0 && t > alloc ? first * Math.pow(1 + growth, t - alloc) : first;
+      const p = t === n ? Finance.roundKurus(amount - cum) : Finance.roundKurus(raw);
+      cum = Finance.roundKurus(cum + p);
+      rows.push({ month: t, saving: p, fee: 0, cumulative: cum, allocation: false });
+    }
+    return rows;
+  },
+  plan(input) {
+    const s = input.savings;
+    if (!s) return null;
+    const amount = savingsAmount(input);
+    if (!(amount > 0) || !(s.months > 0)) return null;
+    const down = Math.min(Math.max(s.down || 0, 0), amount);
+    const n = s.months;
+    const minMonth = Math.min(n, Math.max(1, Math.ceil(n * (TIME_THRESHOLD - down / amount) - 1e-9)));
+    const allocation = (rows) => (rows.find((r) => r.month >= minMonth && r.cumulative >= SAVING_THRESHOLD * amount - 0.005) || { month: n }).month;
+    let rows = SavingsFinance.schedule(amount, down, n, SavingsFinance.firstPayment(amount, down, n, 0, n), 0, n);
+    let computed = allocation(rows);
+    let first = SavingsFinance.firstPayment(amount, down, n, s.growth, computed);
+    if (s.growth > 0) {
+      for (let i = 0; i < 10; i++) {
+        rows = SavingsFinance.schedule(amount, down, n, first, s.growth, computed);
+        const next = allocation(rows);
+        if (next === computed) break;
+        computed = next;
+        first = SavingsFinance.firstPayment(amount, down, n, s.growth, computed);
+      }
+    }
+    const used = s.allocationMonth ? Math.min(Math.max(s.allocationMonth, 1), n) : computed;
+    if (s.growth > 0) first = SavingsFinance.firstPayment(amount, down, n, s.growth, used);
+    rows = SavingsFinance.schedule(amount, down, n, first, s.growth, used);
+    const fee = Finance.roundKurus(amount * s.feeRate);
+    const upfront = Finance.roundKurus(fee / 2);
+    const k = n > 1 ? Math.max(1, Math.min(Math.min(Math.max(s.feeInstallments || 4, 1), 4), n - 1)) : 0;
+    const each = k > 0 ? Finance.roundKurus((fee - upfront) / k) : 0;
+    rows = rows.map((r) => {
+      let f = 0;
+      if (r.month === 0) f = k === 0 ? fee : upfront;
+      else if (k > 0 && r.month >= 2 && r.month <= k + 1) f = r.month === k + 1 ? Finance.roundKurus(fee - upfront - each * (k - 1)) : each;
+      return { ...r, fee: f, allocation: r.month === used };
+    });
+    const saved = (rows.find((r) => r.month === used) || { cumulative: 0 }).cumulative;
+    const housing = input.loanType === 'HOUSING';
+    const warnings = [];
+    if (input.loanType === 'PERSONAL') warnings.push('Tasarruf finansmanı konut ve taşıt içindir; taşıt sınırları uygulandı.');
+    const maxMonths = housing ? 120 : 60;
+    if (n > maxMonths) warnings.push(`Azami vade ${housing ? 'konut / iş yerinde' : 'taşıtta'} ${maxMonths} ay (BDDK).`);
+    if (amount > (housing ? 62500000 : 6250000)) warnings.push(`Azami sözleşme tutarı ${housing ? '62.500.000' : '6.250.000'} TL (BDDK).`);
+    else if (amount > (housing ? 12500000 : 5000000)) warnings.push('Yüksek tutarlı sözleşme: çekilişli gruplara dahil edilemez.');
+    if (amount - saved > 1.5 * saved + 0.01) warnings.push('Finansman, tahsisata kadarki birikimin 1,5 katını aşıyor (BDDK, çekilişsiz model).');
+    return {
+      amount, down, months: n, fee, feeRate: s.feeRate, growth: s.growth || 0, firstPayment: first,
+      allocationMonth: used, computedMonth: computed, rows, warnings,
+      savedAtAllocation: saved, financing: amount - saved, manual: used !== computed,
+      totalPaid: rows.reduce((t, r) => t + r.saving + r.fee, 0),
+    };
+  },
+};
 
 /**
  * Banka kredisi: eşit taksitli ödeme planı ve katkı (Android BankLoan ile aynı). Kredi peşinat gününde kullanılır,
@@ -206,6 +295,8 @@ export const Schedules = {
     if (down > 0) rows.push(pay(id++, 0, down, Kind.DOWN, { locked: true }));
     const credit = creditAmount(input);
     if (credit > 0) rows.push(pay(id++, 0, credit, Kind.CREDIT, { locked: true }));
+    const sv = SavingsFinance.plan(input);
+    if (sv) rows.push(pay(id++, sv.allocationMonth, sv.amount, Kind.ALLOCATION, { locked: true }));
     input.interims.forEach((x) => rows.push(pay(id++, x.month, Finance.roundKurus(valueOf(x.value, base)), Kind.INTERIM, { locked: true })));
     // Firma vadesi yoksa taksit ve ödemesiz ay da yok.
     if (noTerm(input)) return { rows: sortRows(rows), rate: Schedules.rate(input, taxes), target: base, overflow: null };
@@ -228,6 +319,7 @@ export const Schedules = {
       down: pct(i.down, bp),
       interims: i.interims.map((x) => ({ ...x, value: pct(x.value, bp) })),
       credit: i.credit ? { ...i.credit, amount: pct(i.credit.amount, bp) } : i.credit,
+      savings: i.savings ? { ...i.savings, amount: pct(i.savings.amount, bp) } : i.savings,
     };
     const rows = Schedules.build(plan, taxes).rows;
     return { id: 0, name, input, rows, balance: { rate: baseRate, nbd: Finance.presentValue(rows, baseRate) } };
@@ -250,6 +342,7 @@ export const Schedules = {
       discount: scale(old.discount), down: scale(old.down),
       interims: old.interims.map((x) => ({ ...x, value: scale(x.value) })),
       credit: old.credit ? { ...old.credit, amount: scale(old.credit.amount) } : old.credit,
+      savings: old.savings ? { ...old.savings, amount: scale(old.savings.amount), down: Finance.roundKurus(old.savings.down * factor) } : old.savings,
     };
     const cost = Schedules.templateCost(t, baseRate, taxes);
     const rows = (t.rows || Schedules.generate(old, taxes).rows).map((r) => ({ ...r, amount: Finance.roundKurus(r.amount * factor) }));
@@ -282,7 +375,7 @@ export function analyze(plan, baseRate, taxes) {
   let installment = null, best = 0;
   counts.forEach((c, amt) => { if (c > best) { best = c; installment = amt; } });
   return {
-    schedule, rows, baseRate, listPrice, total, pvAtBase, loan, contribution,
+    schedule, rows, baseRate, listPrice, total, pvAtBase, loan, contribution, savings: SavingsFinance.plan(plan.input),
     basePrice: basePrice(plan.input),
     installmentCount: inst.length, installment,
     pv: (p) => p.amount * Finance.discountFactor(baseRate, period(p)),

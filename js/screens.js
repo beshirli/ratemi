@@ -314,6 +314,8 @@ export function SettingsScreen() {
         <${SectionCard} title="Ödeme planı">
           <${SwitchRow} title="Banka kredisi" caption=${s.creditEnabled ? 'Ödeme planında Kredi adımı var (tutar, vade, oran, katkılı kredi)' : 'Kredi adımı gizli; kredi girilmiş planlarda görünmeye devam eder'}
             checked=${s.creditEnabled !== false} onChange=${(v) => app.updateSettings({ ...s, creditEnabled: v })} />
+          <${SwitchRow} title="Tahsisat (tasarruf finansmanı)" caption=${s.savingsEnabled !== false ? 'Ödeme planında Tahsisat adımı ve sihirbazı var' : 'Tahsisat adımı gizli; tahsisat girilmiş planlarda görünmeye devam eder'}
+            checked=${s.savingsEnabled !== false} onChange=${(v) => app.updateSettings({ ...s, savingsEnabled: v })} />
         </${SectionCard}>
         <${SectionCard} title="Yeni planda peşin iskonto">
           <${SwitchRow} title="Varsayılan olarak açık" checked=${s.discountOn} onChange=${(v) => app.updateSettings({ ...s, discountOn: v })} />

@@ -67,6 +67,7 @@ function PlanDoc({ plan, a, fields, rep }) {
         ${a.basePrice !== a.listPrice && html`<${Box} label="Kampanyalı fiyat" value=${moneyShort(a.basePrice)} tone="blue" />`}
         ${down > 0 && html`<${Box} label="Peşinat" value=${moneyShort(down)} tone="navy" />`}
         ${a.loan && html`<${Box} label="Banka kredisi" value=${moneyShort(a.loan.principal)} tone="teal" />`}
+        ${a.savings && html`<${Box} label=${`Tahsisat (${a.savings.allocationMonth}. ay)`} value=${moneyShort(a.savings.amount)} tone="teal" />`}
         ${interims.length > 0 && html`<${Box} label="Ara ödemeler" value=${`${interims.length} · ${moneyShort(interims.reduce((s, r) => s + r.amount, 0))}`} tone="teal" />`}
         ${a.installmentCount > 0 && html`<${Box} label=${`${a.installmentCount} × taksit`} value=${a.installment != null ? money(a.installment) : '—'} tone="blue" />`}
         <${Box} label="Toplam ödeme" value=${moneyShort(a.total)} tone="blue" />
@@ -75,14 +76,35 @@ function PlanDoc({ plan, a, fields, rep }) {
       <table class="pr-table">
         <thead class="grad-logo"><tr><th>Sıra</th><th>Tarih</th><th class="num">Tutar</th>${showCost && html`<th class="num">NBD</th>`}</tr></thead>
         <tbody>
-          ${a.rows.map((p) => html`<tr class=${p.kind === Kind.DOWN ? 'down' : p.kind === Kind.INTERIM || p.kind === Kind.CREDIT ? 'interim' : p.kind === Kind.GRACE ? 'grace' : ''}>
-            <td>${p.kind === Kind.DOWN ? 'Peşinat' : p.kind === Kind.CREDIT ? 'Banka kredisi' : p.kind === Kind.INTERIM ? `${p.month}. Ay · ara ödeme` : p.kind === Kind.GRACE ? `${p.month}. Ay · ödemesiz` : `${p.month}. Ay`}</td>
+          ${a.rows.map((p) => html`<tr class=${p.kind === Kind.DOWN ? 'down' : p.kind === Kind.INTERIM || p.kind === Kind.CREDIT || p.kind === Kind.ALLOCATION ? 'interim' : p.kind === Kind.GRACE ? 'grace' : ''}>
+            <td>${p.kind === Kind.DOWN ? 'Peşinat' : p.kind === Kind.CREDIT ? 'Banka kredisi' : p.kind === Kind.ALLOCATION ? `${p.month}. Ay · tahsisat` : p.kind === Kind.INTERIM ? `${p.month}. Ay · ara ödeme` : p.kind === Kind.GRACE ? `${p.month}. Ay · ödemesiz` : `${p.month}. Ay`}</td>
             <td>${dateMid(payDate(p, start))}</td><td class="num">${money(p.amount)}</td>${showCost && html`<td class="num">${moneyShort(a.pv(p))}</td>`}</tr>`)}
         </tbody>
         <tfoot><tr><td>Toplam</td><td /><td class="num">${money(a.total)}</td>${showCost && html`<td class="num">${moneyShort(a.pvAtBase)}</td>`}</tr></tfoot>
       </table>
       ${a.loan && html`<${LoanPart} loan=${a.loan} start=${plan.input.startDate} />`}
+      ${a.savings && html`<${SavingsPart} plan=${a.savings} start=${plan.input.startDate} />`}
     </div>`;
+}
+
+/** Tasarruf Finansman Ödeme Planı bölümü (müşteri bilgisi). */
+function SavingsPart({ plan, start }) {
+  return html`
+    <h2 class="pr-h2">Tasarruf Finansman Ödeme Planı</h2>
+    <div class="pr-boxes">
+      <${Box} label="Sözleşme tutarı" value=${moneyShort(plan.amount)} tone="teal" />
+      <${Box} label="Şirkete peşinat" value=${moneyShort(plan.down)} tone="teal" />
+      <${Box} label="Vade" value=${`${plan.months} ay`} tone="teal" />
+      <${Box} label=${plan.growth > 0 ? 'İlk taksit (artan)' : 'Aylık taksit'} value=${money(plan.firstPayment)} tone="teal" />
+      <${Box} label="Organizasyon ücreti" value=${moneyShort(plan.fee)} tone="teal" />
+      <${Box} label="Tahsisat" value=${`${plan.allocationMonth}. ay · ${dateMid(DateX.plusMonths(start, plan.allocationMonth))}`} tone="teal" />
+    </div>
+    <table class="pr-table loan">
+      <thead class="grad-logo"><tr><th>Ay</th><th>Tarih</th><th class="num">Tasarruf</th><th class="num">Org. ücreti</th><th class="num">Toplam</th><th class="num">Birikim</th></tr></thead>
+      <tbody>${plan.rows.map((r) => html`<tr class=${r.allocation ? 'grace' : 'interim'}><td>${r.month === 0 ? 'P' : r.month}</td><td>${dateMid(DateX.plusMonths(start, r.month))}${r.allocation ? ' · tahsisat' : ''}</td>
+        <td class="num">${money(r.saving)}</td><td class="num">${r.fee > 0 ? money(r.fee) : '—'}</td><td class="num">${money(r.saving + r.fee)}</td><td class="num">${money(r.cumulative)}</td></tr>`)}</tbody>
+      <tfoot><tr><td>Toplam</td><td /><td class="num">${money(plan.rows.reduce((t, r) => t + r.saving, 0))}</td><td class="num">${money(plan.fee)}</td><td class="num">${money(plan.totalPaid)}</td><td /></tr></tfoot>
+    </table>`;
 }
 
 /** Banka Kredisi Ödeme Planı bölümü (müşteri bilgisi): katkı ve bankanın oranı yazılmaz. */
@@ -98,7 +120,7 @@ function LoanPart({ loan, start }) {
       <${Box} label="Toplam geri ödeme" value=${moneyShort(loan.totalPayment)} tone="teal" />
     </div>
     <table class="pr-table loan">
-      <thead class="grad-logo"><tr><th>No</th><th>Tarih</th><th class="num">Taksit</th><th class="num">Anapara</th><th class="num">Faiz</th>${taxed && html`<th class="num">Vergi</th>`}<th class="num">Kalan</th></tr></thead>
+      <thead class="grad-logo"><tr><th>No</th><th>Tarih</th><th class="num">Taksit</th><th class="num">Anapara</th><th class="num">Kâr payı</th>${taxed && html`<th class="num">Vergi</th>`}<th class="num">Kalan</th></tr></thead>
       <tbody>${loan.rows.map((r) => html`<tr class="interim"><td>${r.month}</td><td>${dateMid(DateX.plusMonths(start, r.month))}</td><td class="num">${money(r.payment)}</td><td class="num">${money(r.principal)}</td><td class="num">${money(r.interest)}</td>${taxed && html`<td class="num">${money(r.tax)}</td>`}<td class="num">${money(r.balance)}</td></tr>`)}</tbody>
       <tfoot><tr><td>Toplam</td><td /><td class="num">${money(loan.totalPayment)}</td><td class="num">${money(loan.principal)}</td><td class="num">${money(loan.totalInterest)}</td>${taxed && html`<td class="num">${money(loan.totalTax)}</td>`}<td /></tr></tfoot>
     </table>`;
