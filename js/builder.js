@@ -371,7 +371,7 @@ function SavingsStep({ input, set, no }) {
           <div class="ar-grid">
             <span><small>Gelecek tutar</small><strong>${moneyShort(plan.amount)}</strong></span>
             <span><small>Bugünkü değeri</small><strong>${moneyShort(pv(plan))}</strong></span>
-            <span><small>Tahsisat maliyeti</small><strong>${moneyShort(cost)} · ${percent(plan.amount > 0 ? cost / plan.amount : 0)}</strong></span>
+            <span><small>Tahsisat maliyeti</small><strong>${moneyShort(cost)}<br />${percent(plan.amount > 0 ? cost / plan.amount : 0)} (tutarın)</strong></span>
             <span><small>Maliyet oranına katkı</small><strong>${percent(input.listPrice > 0 ? cost / input.listPrice : 0)}</strong></span>
           </div>
           <small>Baz oran ${percent(app.settings.baseRate)} / ay ile; firma taksitlerine yedirilmez.</small>
