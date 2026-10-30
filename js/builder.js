@@ -1,7 +1,8 @@
-// Ödeme planı adım adım (30 Ekim 2026): 1 Ürün ve fiyat, 2 Peşinat ve ara ödemeler, 3 Vade, 4 Aylık vade farkı,
-// 5 Plan. Üstteki sekmelerle adımlar arasında serbestçe gidilir; 1–4'te altta ince özet ve Geri / İleri.
+// Ödeme planı. Telefon ve dar ekranda adım adım (30 Ekim 2026): 1 Ürün ve fiyat, 2 Peşinat ve ara ödemeler, 3 Vade,
+// 4 Aylık vade farkı, 5 Plan; üstteki sekmelerle serbest geçiş, 1–4'te altta ince özet ve Geri / İleri.
+// Masaüstünde (WIDE ve üstü) tek sayfa: solda dört girdi bölümü alt alta, sağda anında oluşan plan.
 // Her değişiklik planı anında yeniden hesaplar; kayıt isteğe bağlı ("Kaydet"), şablon ayrı düğmeyle.
-import { html } from '../vendor/preact-htm.js';
+import { html, useState, useEffect } from '../vendor/preact-htm.js';
 import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX } from './finance.js';
 import { money, moneyShort, percent, dateMid, dayShift, editable } from './format.js';
 import {
@@ -15,6 +16,19 @@ const priceStep = (v) => (v >= 10e6 ? 50000 : v >= 1e6 ? 10000 : v >= 1e5 ? 1000
 const yearsText = (m) => (m % 12 === 0 ? `${m / 12} yıl` : m > 12 ? `${Math.floor(m / 12)} yıl ${m % 12} ay` : '');
 const TYPES = [['HOUSING', 'Konut', false], ['VEHICLE', 'Taşıt', true], ['PERSONAL', 'İhtiyaç', true]];
 const STEPS = ['Ürün', 'Peşinat', 'Vade', 'Oran', 'Plan'];
+const WIDE = '(min-width: 1100px)';
+
+/** Ekran masaüstü genişliğinde mi (pencere boyutu değişince güncellenir). */
+function useWide() {
+  const [wide, setWide] = useState(() => matchMedia(WIDE).matches);
+  useEffect(() => {
+    const m = matchMedia(WIDE);
+    const on = () => setWide(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return wide;
+}
 
 export function PlanBuilderScreen() {
   const app = useApp();
@@ -35,6 +49,41 @@ export function PlanBuilderScreen() {
 
   const step = app.planStep;
   const goStep = app.setPlanStep;
+  const wide = useWide();
+
+  // Plan bölümü (5. adım ya da masaüstünde sağ sütun).
+  const result = !ready ? html`
+      <div class="empty-result card">
+        <span class="icon-tile tile-lg tone-blue"><${Icon} name="table" size=${24} /></span>
+        <div class="row-title">Liste fiyatını gir</div>
+        <p class="caption">${wide ? 'Plan burada anında oluşur. Oranı, vadeyi, peşinatı değiştirdikçe tablo ve maliyet kendiliğinden güncellenir.' : 'Plan, 1. adımda liste fiyatı girilince oluşur.'}</p>
+      </div>`
+    : html`
+      <div class="b-actions">
+        <${GradientButton} cls="grow" icon="check" disabled=${!!plan.id && !app.dirty} onClick=${() => (plan.id ? app.savePlan(plan.name, false) : save())}>
+          ${!plan.id ? 'Kaydet' : app.dirty ? 'Değişiklikleri kaydet' : 'Kaydedildi'}
+        </${GradientButton}>
+        ${plan.id ? html`<${OutlineButton} onClick=${save}>Farklı kaydet</${OutlineButton}>` : null}
+        <${IconButton} icon="bookmark" label="Şablon olarak kaydet" cls="filled" onClick=${saveTpl} />
+        <${IconButton} icon="printer" label="PDF" cls="filled" onClick=${share} />
+      </div>
+      <${ResultPanel} plan=${plan} a=${a} />`;
+
+  if (wide) {
+    return html`
+      <div class="screen builder">
+        <${TopBar} title="Ödeme planı" subtitle=${plan.id ? `${plan.name} · ${status}` : status} onBack=${app.back}>
+          <${IconButton} icon="undo" label="Geri al" disabled=${!ops.canUndo} onClick=${ops.undo} />
+          <${IconButton} icon="restore" label="Yeni plan (sıfırla)" onClick=${app.resetPlan} />
+        </${TopBar}>
+        <div class="content builder-wide">
+          <section class="b-inputs">
+            ${[0, 1, 2, 3].map((i) => html`<${InputsPanel} key=${i} input=${input} set=${set} step=${i} number=${i + 1} />`)}
+          </section>
+          <section class="b-result">${result}</section>
+        </div>
+      </div>`;
+  }
 
   return html`
     <div class="screen builder">
@@ -64,29 +113,15 @@ export function PlanBuilderScreen() {
               <${GradientButton} cls="grow" trailing="forward" disabled=${!ready} onClick=${() => goStep(step + 1)}>${step === 3 ? 'Planı göster' : 'İleri'}</${GradientButton}>
             </div>
           </div>`
-        : !ready ? html`
-            <div class="empty-result card">
-              <span class="icon-tile tile-lg tone-blue"><${Icon} name="table" size=${24} /></span>
-              <div class="row-title">Liste fiyatını gir</div>
-              <p class="caption">Plan, 1. adımda liste fiyatı girilince oluşur.</p>
-            </div>`
-        : html`
-            <div class="b-actions">
-              <${GradientButton} cls="grow" icon="check" disabled=${!!plan.id && !app.dirty} onClick=${() => (plan.id ? app.savePlan(plan.name, false) : save())}>
-                ${!plan.id ? 'Kaydet' : app.dirty ? 'Değişiklikleri kaydet' : 'Kaydedildi'}
-              </${GradientButton}>
-              ${plan.id ? html`<${OutlineButton} onClick=${save}>Farklı kaydet</${OutlineButton}>` : null}
-              <${IconButton} icon="bookmark" label="Şablon olarak kaydet" cls="filled" onClick=${saveTpl} />
-              <${IconButton} icon="printer" label="PDF" cls="filled" onClick=${share} />
-            </div>
-            <${ResultPanel} plan=${plan} a=${a} />`}
+        : result}
       </div>
     </div>`;
 }
 
 // --- Girdi adımları (yalnız [step] adımı çizilir) ---
 
-function InputsPanel({ input, set, step }) {
+function InputsPanel({ input, set, step, number }) {
+  const no = number ? html`<span class="b-no">${number}</span>` : null;
   const app = useApp();
   const base = basePrice(input);
   const housing = input.loanType === 'HOUSING';
@@ -102,7 +137,7 @@ function InputsPanel({ input, set, step }) {
   const steps = [
     () => html`
     <div class="card b-sec">
-      <div class="b-head">Ürün ve fiyat</div>
+      <div class="b-head">${no}Ürün ve fiyat</div>
       <${Segmented} options=${TYPES.map((x) => x[1])} index=${TYPES.findIndex((x) => x[0] === input.loanType)}
         onChange=${(i) => set({ loanType: TYPES[i][0], taxOn: TYPES[i][2] })} />
       ${!housing && html`<${SwitchRow} title="BSMV ve KKDF dahil" caption=${`KKDF ${percent(t.kkdf, 0)} + BSMV ${percent(t.bsmv, 0)} orana eklenir`} checked=${input.taxOn} onChange=${(v) => set({ taxOn: v })} />`}
@@ -116,7 +151,7 @@ function InputsPanel({ input, set, step }) {
 
     () => html`
     <div class="card b-sec">
-      <div class="b-head">Peşinat ve ara ödemeler<span class="caption grow right">${input.discountOn ? 'kampanyalı fiyatın' : 'fiyatın'}</span></div>
+      <div class="b-head">${no}Peşinat ve ara ödemeler<span class="caption grow right">${input.discountOn ? 'kampanyalı fiyatın' : 'fiyatın'}</span></div>
       <${AmountPercentFields} value=${input.down} base=${base} onChange=${(v) => set({ down: v })} />
       ${input.interims.length > 0 && html`<div class="interim-head"><span>Ay</span><span>Oran</span><span>Tutar</span><span /></div>`}
       ${input.interims.map((x, i) => {
@@ -141,7 +176,7 @@ function InputsPanel({ input, set, step }) {
 
     () => html`
     <div class="card b-sec">
-      <div class="b-head">Vade</div>
+      <div class="b-head">${no}Vade</div>
       <div class="b-ctl">
         <span class="field-label">Taksit sayısı</span>
         <div class="b-stepper">
@@ -172,7 +207,7 @@ function InputsPanel({ input, set, step }) {
 
     () => html`
     <div class="card b-sec">
-      <div class="b-head">Aylık vade farkı</div>
+      <div class="b-head">${no}Aylık vade farkı</div>
       <div class="b-ctl">
         <div class="b-stepper">
           <${IconButton} icon="minus" label="Azalt" cls="filled" onClick=${() => set({ rate: Math.max(0, Math.round((input.rate - 0.0001) * 1e6) / 1e6) })} />
