@@ -125,6 +125,7 @@ export function PlanBuilderScreen() {
               : html`<div class="step-summary">
                   <span><small>Maliyet</small><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong></span>
                   ${a.installmentCount > 0 ? html`<span><small>${a.installmentCount} × taksit</small><strong>${a.installment != null ? moneyShort(a.installment) : '—'}</strong></span>`
+                    : a.savings && !a.loan ? html`<span><small>Tahsisat (${a.savings.allocationMonth}. ay)</small><strong>${moneyShort(a.savings.amount)}</strong></span>`
                     : html`<span><small>Banka kredisi</small><strong>${a.loan ? moneyShort(a.loan.principal) : '—'}</strong></span>`}
                   <span><small>Toplam</small><strong>${moneyShort(a.total)}</strong></span>
                 </div>`)}
