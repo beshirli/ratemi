@@ -69,7 +69,7 @@ const restIn = { ...sale, credit: { amount: { amount: basePrice(sale) * 0.7 - 60
 eq('kredi kalanı karşılıyor: firma vadesi yok', 1, noTerm(restIn) && analyze({ input: restIn, rows: null, balance: null }, 0.0299, taxes).installmentCount === 0 ? 1 : 0);
 // Tasarruf finansmanı (belgedeki örnek: 10 mn, 2 mn peşinat, 60 ay, %7).
 const svIn = { ...sale, listPrice: 10000000, discountOn: false, down: { amount: 0, percent: true }, interims: [],
-  savings: { amount: { amount: 10000000, percent: false }, down: 2000000, months: 60, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } };
+  savings: { amount: { amount: 10000000, percent: false }, down: { amount: 2000000, percent: false }, months: 60, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } };
 const sv = SavingsFinance.plan(svIn);
 eq('tasarruf taksiti', 133333.33, sv.firstPayment, 0.01);
 eq('tahsisat 19. ay (birikim %45)', 19, sv.allocationMonth);
@@ -79,8 +79,16 @@ const svA = analyze({ input: svIn, rows: null, balance: null }, 0.0299, taxes);
 eq('tahsisat satırı firmaya', 1, svA.rows.filter((r) => r.kind === Kind.ALLOCATION && r.month === 19 && Math.abs(r.amount - 10000000) < 0.01).length);
 // Süre şartı da %45: peşinatsız 100 ay → 45. ay; %20 peşinatla 32. ay (birikim şartı).
 const sv100 = (down) => SavingsFinance.plan({ ...sale, listPrice: 1000000, discountOn: false, down: { amount: 0, percent: true }, interims: [],
-  savings: { amount: { amount: 1000000, percent: false }, down, months: 100, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } });
+  savings: { amount: { amount: 1000000, percent: false }, down: { amount: down, percent: false }, months: 100, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } });
 eq('süre %45: 45. ay', 45, sv100(0).allocationMonth);
 eq('%20 peşinat: 32. ay', 32, sv100(200000).allocationMonth);
+// Tahsisat firma vadesine yedirilmez: tahsisat ayı değişince firma taksiti aynı; tahsisat maliyeti ayrı.
+const bpS = basePrice({ ...sale, interims: [] });
+const svIn2 = (alloc) => ({ ...sale, interims: [], savings: { amount: { amount: bpS * 0.4, percent: false }, down: { amount: 0, percent: true }, months: 60, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: alloc } });
+const sA = analyze({ input: svIn2(null), rows: null, balance: null }, 0.0299, taxes);
+const sB = analyze({ input: svIn2(sA.savings.allocationMonth + 12), rows: null, balance: null }, 0.0299, taxes);
+eq('tahsisat ayı firma taksitini değiştirmez', sA.installment, sB.installment, 0.001);
+eq('geç tahsisat maliyeti artırır', 1, sB.costRatio > sA.costRatio ? 1 : 0);
+eq('tahsisat maliyeti', bpS * 0.4 * (1 - 1 / Math.pow(1.0299, sA.savings.allocationMonth)), sA.allocationCost, 0.01);
 console.log(fails ? `${fails} HATA` : 'Tüm testler geçti');
 process.exit(fails ? 1 : 0);

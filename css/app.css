@@ -410,6 +410,12 @@ body.modal-open { overflow: hidden; }
 .loan-sum strong.big { font-size: 22px; } .loan-sum .teal { color: var(--teal); }
 .wiz-bar { display: flex; gap: 4px; margin-top: 8px; } .wiz-bar i { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.35); } .wiz-bar i.on { background: rgba(255,255,255,.95); }
 .wiz-body { display: flex; flex-direction: column; gap: 10px; }
+.sub-label { font-size: 13px; font-weight: 700; margin-top: 6px; }
+.alloc-result { display: flex; flex-direction: column; gap: 4px; color: #fff; border-radius: 18px; padding: 16px; }
+.alloc-result small { font-size: 12px; opacity: .85; } .alloc-result .big { font-size: 24px; }
+.ar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0 4px; }
+.ar-grid span { display: flex; flex-direction: column; background: rgba(255,255,255,.16); border-radius: 12px; padding: 8px 10px; min-width: 0; }
+.ar-grid strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .alloc-strip { display: flex; gap: 10px; align-items: center; background: var(--teal-soft); border-radius: 14px; padding: 10px 14px; margin-bottom: 10px; }
 .alloc-strip span { display: flex; flex-direction: column; min-width: 0; flex: 1; } .alloc-strip span:first-child { flex: 1.4; }
 .alloc-strip .r { text-align: right; } .alloc-strip small { font-size: 11px; color: var(--label2); } .alloc-strip strong { font-size: 14px; white-space: nowrap; }

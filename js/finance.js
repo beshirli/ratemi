@@ -176,7 +176,9 @@ export const SavingsFinance = {
     if (!s) return null;
     const amount = savingsAmount(input);
     if (!(amount > 0) || !(s.months > 0)) return null;
-    const down = Math.min(Math.max(s.down || 0, 0), amount);
+    // Şirkete peşinat { amount, percent } (sözleşme tutarının oranı ya da TL); eski kayıtlarda sayı (TL).
+    const dv = typeof s.down === 'number' ? { amount: s.down, percent: false } : (s.down || { amount: 0, percent: true });
+    const down = Finance.roundKurus(Math.min(Math.max(valueOf(dv, amount), 0), amount));
     const n = s.months;
     const minMonth = Math.min(n, Math.max(1, Math.ceil(n * (TIME_THRESHOLD - down / amount) - 1e-9)));
     const allocation = (rows) => (rows.find((r) => r.month >= minMonth && r.cumulative >= SAVING_THRESHOLD * amount - 0.005) || { month: n }).month;
@@ -296,17 +298,21 @@ export const Schedules = {
     const credit = creditAmount(input);
     if (credit > 0) rows.push(pay(id++, 0, credit, Kind.CREDIT, { locked: true }));
     const sv = SavingsFinance.plan(input);
-    if (sv) rows.push(pay(id++, sv.allocationMonth, sv.amount, Kind.ALLOCATION, { locked: true }));
     input.interims.forEach((x) => rows.push(pay(id++, x.month, Finance.roundKurus(valueOf(x.value, base)), Kind.INTERIM, { locked: true })));
     // Firma vadesi yoksa taksit ve ödemesiz ay da yok.
-    if (noTerm(input)) return { rows: sortRows(rows), rate: Schedules.rate(input, taxes), target: base, overflow: null };
+    const alloc = sv ? pay(id++, sv.allocationMonth, sv.amount, Kind.ALLOCATION, { locked: true }) : null;
+    if (noTerm(input)) return { rows: sortRows(alloc ? [...rows, alloc] : rows), rate: Schedules.rate(input, taxes), target: base, overflow: null };
     const first = firstInstallmentMonth(input);
     for (let m = 1; m < first; m++) if (!interimMonths.has(m)) rows.push(pay(id++, m, 0, Kind.GRACE, { locked: true }));
     for (let m = first; m < first + input.months; m++) {
       if (input.skipOnInterim && interimMonths.has(m)) continue;
       rows.push(pay(id++, m, 0, Kind.INSTALLMENT));
     }
-    return balanced(rows, Schedules.rate(input, taxes), base);
+    // Tahsisat firma vadesine yedirilmez: taksitler tahsisat tutarı (nominal) düşülmüş kalan için dengelenir; gecikme
+    // maliyeti planın maliyet oranında ayrıca görünür (kullanıcı kararı, 30 Ekim 2026).
+    if (!alloc) return balanced(rows, Schedules.rate(input, taxes), base);
+    const firm = balanced(rows, Schedules.rate(input, taxes), base - alloc.amount);
+    return { ...firm, rows: sortRows([...firm.rows, alloc]), target: base };
   },
 
   toTemplate(plan, name, baseRate, taxes) {
@@ -342,7 +348,7 @@ export const Schedules = {
       discount: scale(old.discount), down: scale(old.down),
       interims: old.interims.map((x) => ({ ...x, value: scale(x.value) })),
       credit: old.credit ? { ...old.credit, amount: scale(old.credit.amount) } : old.credit,
-      savings: old.savings ? { ...old.savings, amount: scale(old.savings.amount), down: Finance.roundKurus(old.savings.down * factor) } : old.savings,
+      savings: old.savings ? { ...old.savings, amount: scale(old.savings.amount), down: typeof old.savings.down === 'number' ? Finance.roundKurus(old.savings.down * factor) : scale(old.savings.down) } : old.savings,
     };
     const cost = Schedules.templateCost(t, baseRate, taxes);
     const rows = (t.rows || Schedules.generate(old, taxes).rows).map((r) => ({ ...r, amount: Finance.roundKurus(r.amount * factor) }));
@@ -368,6 +374,7 @@ export function analyze(plan, baseRate, taxes) {
   const loan = BankLoan.plan(plan.input, taxes);
   const contribution = loan ? loan.contribution : 0;
   const pvAtBase = Finance.presentValue(rows, baseRate) - contribution;
+  const savings = SavingsFinance.plan(plan.input);
   const inst = rows.filter((r) => r.kind === Kind.INSTALLMENT);
   const pool = inst.filter((r) => !r.locked).length ? inst.filter((r) => !r.locked) : inst;
   const counts = new Map();
@@ -375,7 +382,9 @@ export function analyze(plan, baseRate, taxes) {
   let installment = null, best = 0;
   counts.forEach((c, amt) => { if (c > best) { best = c; installment = amt; } });
   return {
-    schedule, rows, baseRate, listPrice, total, pvAtBase, loan, contribution, savings: SavingsFinance.plan(plan.input),
+    schedule, rows, baseRate, listPrice, total, pvAtBase, loan, contribution, savings,
+    // Tahsisatın kendi maliyeti: tutar − tahsisat ayındaki tutarın baz oranla bugünkü değeri (firma vadesine yedirilmez).
+    allocationCost: savings ? savings.amount * (1 - Finance.discountFactor(baseRate, savings.allocationMonth)) : 0,
     basePrice: basePrice(plan.input),
     installmentCount: inst.length, installment,
     pv: (p) => p.amount * Finance.discountFactor(baseRate, period(p)),
