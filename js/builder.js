@@ -1,5 +1,6 @@
-// Ödeme planı: girdiler ve oluşan plan tek sayfada. Her değişiklik planı anında yeniden hesaplar;
-// kayıt isteğe bağlı ("Kaydet"), şablon ayrı düğmeyle.
+// Ödeme planı adım adım (30 Ekim 2026): 1 Ürün ve fiyat, 2 Peşinat ve ara ödemeler, 3 Vade, 4 Aylık vade farkı,
+// 5 Plan. Üstteki sekmelerle adımlar arasında serbestçe gidilir; 1–4'te altta ince özet ve Geri / İleri.
+// Her değişiklik planı anında yeniden hesaplar; kayıt isteğe bağlı ("Kaydet"), şablon ayrı düğmeyle.
 import { html } from '../vendor/preact-htm.js';
 import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX } from './finance.js';
 import { money, moneyShort, percent, dateMid, dayShift, editable } from './format.js';
@@ -13,6 +14,7 @@ import { BaseRatePill } from './screens.js';
 const priceStep = (v) => (v >= 10e6 ? 50000 : v >= 1e6 ? 10000 : v >= 1e5 ? 1000 : v >= 1e4 ? 100 : 10);
 const yearsText = (m) => (m % 12 === 0 ? `${m / 12} yıl` : m > 12 ? `${Math.floor(m / 12)} yıl ${m % 12} ay` : '');
 const TYPES = [['HOUSING', 'Konut', false], ['VEHICLE', 'Taşıt', true], ['PERSONAL', 'İhtiyaç', true]];
+const STEPS = ['Ürün', 'Peşinat', 'Vade', 'Oran', 'Plan'];
 
 export function PlanBuilderScreen() {
   const app = useApp();
@@ -31,24 +33,44 @@ export function PlanBuilderScreen() {
   const share = () => app.sheet(html`<${ShareSheet} kind="plan" onClose=${app.closeSheet} onPrint=${(f) => { app.closeSheet(); app.print({ kind: 'plan', plan, a, fields: f }); }} />`);
   const status = !plan.id ? 'Kaydedilmedi' : app.dirty ? 'Kaydedilmemiş değişiklik var' : 'Kayıtlı';
 
+  const step = app.planStep;
+  const goStep = app.setPlanStep;
+
   return html`
     <div class="screen builder">
       <${TopBar} title="Ödeme planı" subtitle=${plan.id ? `${plan.name} · ${status}` : status} onBack=${app.back}>
         <${IconButton} icon="undo" label="Geri al" disabled=${!ops.canUndo} onClick=${ops.undo} />
         <${IconButton} icon="restore" label="Yeni plan (sıfırla)" onClick=${app.resetPlan} />
       </${TopBar}>
-      <div class="content builder-layout">
-        <section class="b-inputs">
-          <${InputsPanel} input=${input} set=${set} />
-        </section>
-        <section class="b-result" id="plan-result">
-          ${!ready ? html`
+      <div class="step-tabs">
+        ${STEPS.map((name, i) => html`
+          <button key=${i} class=${'st-tab' + (i === step ? ' on' : i < step ? ' done' : '')} disabled=${i > 0 && !ready} onClick=${() => i !== step && goStep(i)}>
+            <span class="st-no">${i < step ? html`<${Icon} name="check" size=${14} />` : i + 1}</span><span class="st-name">${name}</span>
+          </button>`)}
+      </div>
+      <div class="content builder">
+        ${step < 4 ? html`
+          <${InputsPanel} input=${input} set=${set} step=${step} />
+          <div class="step-footer">
+            ${ready && (a.schedule.overflow
+              ? html`<div class="alert small">Peşinat ve ara ödemelerin bugünkü değeri hedefi ${moneyShort(a.schedule.overflow.excess)} aşıyor.</div>`
+              : html`<div class="step-summary">
+                  <span><small>Maliyet</small><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong></span>
+                  <span><small>${a.installmentCount} × taksit</small><strong>${a.installment != null ? moneyShort(a.installment) : '—'}</strong></span>
+                  <span><small>Toplam</small><strong>${moneyShort(a.total)}</strong></span>
+                </div>`)}
+            <div class="btn-row">
+              ${step > 0 && html`<${OutlineButton} icon="back" onClick=${() => goStep(step - 1)}>Geri</${OutlineButton}>`}
+              <${GradientButton} cls="grow" trailing="forward" disabled=${!ready} onClick=${() => goStep(step + 1)}>${step === 3 ? 'Planı göster' : 'İleri'}</${GradientButton}>
+            </div>
+          </div>`
+        : !ready ? html`
             <div class="empty-result card">
               <span class="icon-tile tile-lg tone-blue"><${Icon} name="table" size=${24} /></span>
               <div class="row-title">Liste fiyatını gir</div>
-              <p class="caption">Plan burada anında oluşur. Oranı, vadeyi, peşinatı değiştirdikçe tablo ve maliyet kendiliğinden güncellenir.</p>
+              <p class="caption">Plan, 1. adımda liste fiyatı girilince oluşur.</p>
             </div>`
-          : html`
+        : html`
             <div class="b-actions">
               <${GradientButton} cls="grow" icon="check" disabled=${!!plan.id && !app.dirty} onClick=${() => (plan.id ? app.savePlan(plan.name, false) : save())}>
                 ${!plan.id ? 'Kaydet' : app.dirty ? 'Değişiklikleri kaydet' : 'Kaydedildi'}
@@ -58,21 +80,13 @@ export function PlanBuilderScreen() {
               <${IconButton} icon="printer" label="PDF" cls="filled" onClick=${share} />
             </div>
             <${ResultPanel} plan=${plan} a=${a} />`}
-        </section>
       </div>
-      ${ready && !a.schedule.overflow && html`
-        <button class="mini-summary grad-logo mobile-only" onClick=${() => document.getElementById('plan-result')?.scrollIntoView({ behavior: 'smooth' })}>
-          <span><small>Maliyet</small><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong></span>
-          <span><small>${a.installmentCount} × taksit</small><strong>${a.installment != null ? moneyShort(a.installment) : '—'}</strong></span>
-          <span><small>Toplam</small><strong>${moneyShort(a.total)}</strong></span>
-          <${Icon} name="down" size=${18} />
-        </button>`}
     </div>`;
 }
 
-// --- Girdiler (eski 4 adım, sıkışık) ---
+// --- Girdi adımları (yalnız [step] adımı çizilir) ---
 
-function InputsPanel({ input, set }) {
+function InputsPanel({ input, set, step }) {
   const app = useApp();
   const base = basePrice(input);
   const housing = input.loanType === 'HOUSING';
@@ -85,9 +99,10 @@ function InputsPanel({ input, set }) {
   const rateSheet = () => app.sheet(html`<${RateSheet} title="Aylık vade farkı oranı" rate=${input.rate} onClose=${app.closeSheet}
     onDone=${(r) => { app.closeSheet(); set({ rate: r }); }} />`);
 
-  return html`
+  const steps = [
+    () => html`
     <div class="card b-sec">
-      <div class="b-head"><span class="b-no">1</span>Ürün ve fiyat</div>
+      <div class="b-head">Ürün ve fiyat</div>
       <${Segmented} options=${TYPES.map((x) => x[1])} index=${TYPES.findIndex((x) => x[0] === input.loanType)}
         onChange=${(i) => set({ loanType: TYPES[i][0], taxOn: TYPES[i][2] })} />
       ${!housing && html`<${SwitchRow} title="BSMV ve KKDF dahil" caption=${`KKDF ${percent(t.kkdf, 0)} + BSMV ${percent(t.bsmv, 0)} orana eklenir`} checked=${input.taxOn} onChange=${(v) => set({ taxOn: v })} />`}
@@ -97,10 +112,11 @@ function InputsPanel({ input, set }) {
       </label>
       <${SwitchRow} title="Peşin iskonto" caption=${discount > 0 ? `Kampanyalı fiyat ${moneyShort(base)} (−${moneyShort(discount)})` : 'Liste fiyatından düşülür'} checked=${input.discountOn} onChange=${(v) => set({ discountOn: v })} />
       ${input.discountOn && html`<${AmountPercentFields} value=${input.discount} base=${input.listPrice} onChange=${(v) => set({ discount: v })} />`}
-    </div>
+    </div>`,
 
+    () => html`
     <div class="card b-sec">
-      <div class="b-head"><span class="b-no">2</span>Peşinat ve ara ödemeler<span class="caption grow right">${input.discountOn ? 'kampanyalı fiyatın' : 'fiyatın'}</span></div>
+      <div class="b-head">Peşinat ve ara ödemeler<span class="caption grow right">${input.discountOn ? 'kampanyalı fiyatın' : 'fiyatın'}</span></div>
       <${AmountPercentFields} value=${input.down} base=${base} onChange=${(v) => set({ down: v })} />
       ${input.interims.length > 0 && html`<div class="interim-head"><span>Ay</span><span>Oran</span><span>Tutar</span><span /></div>`}
       ${input.interims.map((x, i) => {
@@ -112,40 +128,39 @@ function InputsPanel({ input, set }) {
           <${IconButton} icon="trash" label="Ara ödemeyi sil" cls="red" onClick=${() => set({ interims: input.interims.filter((_, j) => j !== i) })} />
         </div>`;
       })}
-      <div class="b-row">
-        <${TextAction} icon="add" color="var(--teal)" onClick=${() => {
-          const month = (input.interims.length ? Math.max(...input.interims.map((x) => x.month)) : 0) + 6;
-          set({ interims: [...input.interims, { month, value: { amount: 10, percent: true } }] });
-        }}>Ara ödeme ekle</${TextAction}>
-      </div>
+      <${OutlineButton} cls="full add-interim" icon="add" color="var(--teal)" onClick=${() => {
+        const month = (input.interims.length ? Math.max(...input.interims.map((x) => x.month)) : 0) + 6;
+        set({ interims: [...input.interims, { month, value: { amount: 10, percent: true } }] });
+      }}>Ara ödeme ekle</${OutlineButton}>
       ${conflict && html`
         <div class="b-inline">
           <span class="caption">Ara ödeme ayında</span>
           <${Segmented} options=${['Taksit de ödenir', 'Taksit pas geçilir']} index=${input.skipOnInterim ? 1 : 0} onChange=${(i) => set({ skipOnInterim: i === 1 })} />
         </div>`}
-    </div>
+    </div>`,
 
+    () => html`
     <div class="card b-sec">
-      <div class="b-head"><span class="b-no">3</span>Vade</div>
-      <div class="b-two">
-        <div class="b-ctl">
-          <span class="field-label">Taksit sayısı</span>
-          <div class="b-stepper">
-            <${IconButton} icon="minus" label="Azalt" cls="filled" onClick=${() => set({ months: Math.max(1, input.months - 1) })} />
-            <div class="bs-val"><${NumberField} value=${input.months} inputMode="numeric" onChange=${(v) => v >= 1 && set({ months: Math.min(360, Math.round(v)) })} /><span>ay</span></div>
-            <${IconButton} icon="add" label="Artır" cls="filled" onClick=${() => set({ months: Math.min(360, input.months + 1) })} />
-          </div>
-          <div class="caption center">${yearsText(input.months) || ' '}</div>
+      <div class="b-head">Vade</div>
+      <div class="b-ctl">
+        <span class="field-label">Taksit sayısı</span>
+        <div class="b-stepper">
+          <${IconButton} icon="minus" label="Azalt" cls="filled" onClick=${() => set({ months: Math.max(1, input.months - 1) })} />
+          <div class="bs-val"><${NumberField} value=${input.months} inputMode="numeric" onChange=${(v) => v >= 1 && set({ months: Math.min(360, Math.round(v)) })} /><span>ay</span></div>
+          <${IconButton} icon="add" label="Artır" cls="filled" onClick=${() => set({ months: Math.min(360, input.months + 1) })} />
         </div>
-        <div class="b-ctl">
-          <span class="field-label">Ödemesiz dönem</span>
-          <div class="b-stepper">
-            <${IconButton} icon="minus" label="Bir ay azalt" cls="filled" onClick=${() => set({ graceMonths: Math.max(0, (input.graceMonths || 0) - 1) })} />
-            <span class="grace-val">${input.graceMonths ? `${input.graceMonths} ay` : 'Yok'}</span>
-            <${IconButton} icon="add" label="Bir ay artır" cls="filled" onClick=${() => set({ graceMonths: Math.min(60, (input.graceMonths || 0) + 1) })} />
-          </div>
-          <div class="caption center">${input.graceMonths ? 'taksitler ötelenir' : 'taksitler hemen başlar'}</div>
+        <div class="caption center">${yearsText(input.months) || ' '}</div>
+      </div>
+      <span class="field-label">Hızlı vade</span>
+      <div class="chips-wrap">${[6, 12, 18, 24, 36, 48, 60, 72, 84, 120].map((m) => html`<${Chip} label=${`${m} ay`} selected=${input.months === m} onClick=${() => set({ months: m })} />`)}</div>
+      <div class="b-ctl">
+        <span class="field-label">Ödemesiz dönem</span>
+        <div class="b-stepper">
+          <${IconButton} icon="minus" label="Bir ay azalt" cls="filled" onClick=${() => set({ graceMonths: Math.max(0, (input.graceMonths || 0) - 1) })} />
+          <span class="grace-val">${input.graceMonths ? `${input.graceMonths} ay` : 'Yok'}</span>
+          <${IconButton} icon="add" label="Bir ay artır" cls="filled" onClick=${() => set({ graceMonths: Math.min(60, (input.graceMonths || 0) + 1) })} />
         </div>
+        <div class="caption center">${input.graceMonths ? `taksitler ${input.graceMonths} ay ötelenir` : 'taksitler hemen başlar'}</div>
       </div>
       <label class="b-ctl b-date row">
         <span class="field-label">İlk taksit</span>
@@ -153,12 +168,11 @@ function InputsPanel({ input, set }) {
         <input type="date" value=${DateX.iso(DateX.plusMonths(input.startDate, first))}
           onChange=${(e) => e.target.value && set({ startDate: DateX.plusMonths(DateX.fromIso(e.target.value), -first) })} />
       </label>
-      <span class="field-label">Hızlı vade</span>
-      <div class="chips-wrap">${[6, 12, 18, 24, 36, 48, 60, 120].map((m) => html`<${Chip} label=${`${m} ay`} selected=${input.months === m} onClick=${() => set({ months: m })} />`)}</div>
-    </div>
+    </div>`,
 
+    () => html`
     <div class="card b-sec">
-      <div class="b-head"><span class="b-no">4</span>Aylık vade farkı</div>
+      <div class="b-head">Aylık vade farkı</div>
       <div class="b-ctl">
         <div class="b-stepper">
           <${IconButton} icon="minus" label="Azalt" cls="filled" onClick=${() => set({ rate: Math.max(0, Math.round((input.rate - 0.0001) * 1e6) / 1e6) })} />
@@ -169,7 +183,9 @@ function InputsPanel({ input, set }) {
       </div>
       <span class="field-label">Hızlı oran · ortadaki orana dokun: klavyeyle yaz</span>
       <div class="chips-wrap">${[0, 0.0099, 0.0149, 0.0199, 0.0249, 0.0299, 0.0349, 0.0399].map((r) => html`<${Chip} label=${r === 0 ? 'Vade farksız' : percent(r)} selected=${Math.abs(input.rate - r) < 1e-9} onClick=${() => set({ rate: r })} />`)}</div>
-    </div>`;
+    </div>`,
+  ];
+  return steps[step]();
 }
 
 // --- Oluşan plan ---

@@ -23,6 +23,8 @@ function App() {
   const [stack, setStack] = useState(['home']);
   const [plan, setPlan] = useState(null);
   const [dirty, setDirty] = useState(false);
+  // Ödeme planı adımı: 0 Ürün, 1 Peşinat, 2 Vade, 3 Oran, 4 Plan.
+  const [planStep, setPlanStepState] = useState(0);
   const [offer, setOffer] = useState(null);
   const [conversion, setConversion] = useState(null);
   const [sheetEl, setSheetEl] = useState(null);
@@ -36,7 +38,7 @@ function App() {
   const [session, setSessionState] = useState(undefined);
   const [sessionError, setSessionError] = useState('');
   const state = useRef({});
-  state.current = { stack, sheetEl, plan, dirty };
+  state.current = { stack, sheetEl, plan, dirty, planStep };
 
   const screen = stack[stack.length - 1];
   const taxes = settings.taxes;
@@ -62,6 +64,8 @@ function App() {
   const internalBack = () => {
     const s = state.current;
     if (s.sheetEl) { setSheetEl(null); return; }
+    // Girdi adımlarında geri bir önceki adıma gider; plandan (son adım) ekran kapanır.
+    if (s.stack[s.stack.length - 1] === 'plan' && s.planStep >= 1 && s.planStep <= 3) { setPlanStepState(s.planStep - 1); return; }
     if (s.stack.length > 1) {
       const next = s.stack.slice(0, -1);
       setStack(next);
@@ -94,6 +98,13 @@ function App() {
   const go = (name) => (name === 'home' || name === 'templates' ? goTab(name) : push(name));
 
   const sheet = (el) => { pushHistory(); setSheetEl(el); };
+
+  /** Adım değişir; ileri gidişler geçmişe yazılır (telefonun geri hareketi bir önceki adıma döner). */
+  const setPlanStep = (n) => {
+    if (n > state.current.planStep && n <= 3) pushHistory();
+    setPlanStepState(n);
+    document.querySelector('.main')?.scrollTo(0, 0); scrollTo(0, 0);
+  };
   const closeSheet = () => { if (state.current.sheetEl) history.back(); };
 
   // --- Oturum ve kullanım ölçümü ---
@@ -181,6 +192,7 @@ function App() {
     const d = loadDraft();
     if (d && d.dirty && d.plan && d.plan.input.listPrice > 0) loadPlan(d.plan, true);
     else loadPlan(freshPlan(), false);
+    setPlanStepState(0);
     push('plan');
   };
 
@@ -188,6 +200,7 @@ function App() {
     const p = state.current.plan;
     if (state.current.dirty && p && p.input.listPrice > 0 && !confirm('Kaydedilmemiş plan silinip boş plan açılsın mı?')) return;
     loadPlan(freshPlan(), false);
+    setPlanStepState(0);
   };
 
   const change = (p) => {
@@ -217,6 +230,7 @@ function App() {
 
   const openPlan = (rec) => {
     loadPlan({ id: rec.id, name: rec.name, ...rec.data }, false);
+    setPlanStepState(4);
     push('plan');
   };
 
@@ -272,6 +286,7 @@ function App() {
       undoStack.current = []; setCanUndo(false);
       setStack((st) => [...st.filter((x) => x === 'home' || x === 'templates'), 'plan']);
       loadPlan(p, true);
+      setPlanStepState(4);
     }} />`);
   const renameTemplate = (rec) => sheet(html`<${NameSheet} title="Şablonun adı" value=${rec.name} button="Tamam" onClose=${closeSheet}
     onDone=${(name) => { closeSheet(); upsert({ ...rec, name }); }} />`);
@@ -370,7 +385,7 @@ function App() {
   }, [printDoc]);
 
   const app = {
-    settings, updateSettings, records, go, back, screen, plan, dirty, newPlan, resetPlan, updateInput, savePlan, autoName,
+    settings, updateSettings, records, go, back, screen, plan, dirty, planStep, setPlanStep, newPlan, resetPlan, updateInput, savePlan, autoName,
     analyzePlan, planOps, templateCost, useTemplate, renameTemplate, deleteRecord, restoreRecord, purgeRecord, emptyTrash,
     offer, newOffer, updateOffer, conversion, newConversion, updateConversion, openRecord, sheet, closeSheet, editBaseRate,
     exportBackup, importBackup, print, shareFields, setShareFields, cloud, session, sessionError, logout,
