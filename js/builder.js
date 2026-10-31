@@ -3,7 +3,7 @@
 // Masaüstünde (WIDE ve üstü) tek sayfa: solda dört girdi bölümü alt alta, sağda anında oluşan plan.
 // Her değişiklik planı anında yeniden hesaplar; kayıt isteğe bağlı ("Kaydet"), şablon ayrı düğmeyle.
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash, noTerm, creditAmount, SavingsFinance, savingsAmount, customerRows, costBreakdown } from './finance.js';
+import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash, noTerm, creditAmount, SavingsFinance, savingsAmount, customerRows, customerStats, costBreakdown } from './finance.js';
 import { money, moneyShort, percent, dateMid, dayShift, editable } from './format.js';
 import {
   Icon, IconButton, GradientButton, OutlineButton, TextAction, Chip, Segmented, SwitchRow, Badge,
@@ -592,32 +592,40 @@ function loanSavingsCards(app, a, start) {
  */
 function CustomerPanel({ a, start }) {
   const rows = customerRows(a, start);
+  const st = customerStats(rows);
   const sum = (f) => rows.reduce((t, x) => t + f(x), 0);
   const hasS = rows.some((x) => x.savings > 0), hasB = rows.some((x) => x.bank > 0);
-  const first = rows.find((x) => x.month === 0)?.total || 0;
-  const peak = Math.max(0, ...rows.filter((x) => x.month > 0).map((x) => x.total));
   const last = rows[rows.length - 1];
-  const cell = (v, cls) => html`<span class=${'c-part ' + cls}>${v > 0 ? moneyShort(v) : '—'}</span>`;
+  const cols = 2 + (hasS ? 1 : 0) + (hasB ? 1 : 0);
+  const cell = (v, bold) => html`<span class=${'cv' + (v > 0 ? '' : ' none') + (bold ? ' b' : '')}>${v > 0 ? moneyShort(v) : '—'}</span>`;
+  const fact = (l, v, note) => html`<div class="cc-fact"><span>${l}</span><strong>${v}</strong>${note && html`<em>${note}</em>`}</div>`;
   return html`
     <div class="cost-card grad-customer static">
       <div class="r-label">Müşterinin toplam ödemesi</div>
-      <div class="r-big">${money(sum((x) => x.total))}</div>
+      <div class="r-big">${money(st.total)}</div>
       <div class="cc-facts">
-        <div class="cc-fact"><span>Peşin gün</span><strong>${moneyShort(first)}</strong></div>
-        <div class="cc-fact"><span>En yüksek aylık</span><strong>${moneyShort(peak)}</strong></div>
-        <div class="cc-fact"><span>Firmaya</span><strong>${moneyShort(sum((x) => x.firm))}</strong></div>
-        ${hasS && html`<div class="cc-fact"><span>Tasarrufa</span><strong>${moneyShort(sum((x) => x.savings))}</strong></div>`}
-        ${hasB && html`<div class="cc-fact"><span>Bankaya</span><strong>${moneyShort(sum((x) => x.bank))}</strong></div>`}
+        ${fact('Peşinat', moneyShort(st.down), st.dayZero - st.down >= 1 ? `toplam ${moneyShort(st.dayZero)}` : null)}
+        ${fact('Ara ödemeler', st.interimCount ? moneyShort(st.interimTotal) : 'Yok', st.interimCount ? `${st.interimCount} ödeme` : null)}
+      </div>
+      <div class="cc-facts three">
+        ${fact('En düşük aylık', moneyShort(st.minMonthly))}
+        ${fact('Ortalama aylık', moneyShort(st.avgMonthly))}
+        ${fact('En yüksek aylık', moneyShort(st.maxMonthly), st.maxInterim > 0 ? `+ ara ${moneyShort(st.maxInterim)}` : null)}
+      </div>
+      <div class=${'cc-facts' + (hasS && hasB ? ' three' : '')}>
+        ${fact('Firmaya', moneyShort(sum((x) => x.firm)))}
+        ${hasS && fact('Tasarrufa', moneyShort(sum((x) => x.savings)))}
+        ${hasB && fact('Bankaya', moneyShort(sum((x) => x.bank)))}
       </div>
       ${last && html`<div class="r-note">Son ödeme ${last.month}. ay · ${dateMid(last.date)}</div>`}
     </div>
     <div class="list-head"><span class="section-label">Müşterinin ödemeleri · ${rows.length} ay</span></div>
-    <div class="ptable ctable">
-      <div class="pt-head"><span class="c-no">Sıra</span><span class="c-part firm">Firma</span>${hasS && html`<span class="c-part sav">Tasarruf</span>`}${hasB && html`<span class="c-part bank">Banka</span>`}<span class="c-sum">Toplam</span></div>
-      ${rows.map((x) => html`<div class=${'pt-row' + (x.month === 0 ? ' down' : '')} key=${x.month}>
-        <span class="c-no"><strong>${x.month === 0 ? 'Peşin' : `${x.month}. Ay`}</strong><small>${dateMid(x.date)}</small></span>
-        ${cell(x.firm, 'firm')}${hasS && cell(x.savings, 'sav')}${hasB && cell(x.bank, 'bank')}<span class="c-sum">${moneyShort(x.total)}</span></div>`)}
-      <div class="pt-total"><span class="c-no">Toplam</span>${cell(sum((x) => x.firm), 'firm')}${hasS && cell(sum((x) => x.savings), 'sav')}${hasB && cell(sum((x) => x.bank), 'bank')}<span class="c-sum">${moneyShort(sum((x) => x.total))}</span></div>
+    <div class="ctab" style=${`--cols:${cols}`}>
+      <div class="ct-row ct-head"><span>Ay</span><span class="h"><i class="dot firm" />Firma</span>${hasS && html`<span class="h"><i class="dot sav" />Tasarruf</span>`}${hasB && html`<span class="h"><i class="dot bank" />Banka</span>`}<span class="h">Toplam</span></div>
+      ${rows.map((x) => html`<div class=${'ct-row' + (x.month === 0 ? ' zero' : x.interim > 0 ? ' interim' : '')} key=${x.month}>
+        <span class="ct-m"><strong>${x.month === 0 ? 'Peşin' : `${x.month}. ay`}${x.interim > 0 && x.month > 0 ? html`<em>ara</em>` : ''}</strong><small>${dateMid(x.date)}</small></span>
+        ${cell(x.firm, x.interim > 0)}${hasS && cell(x.savings)}${hasB && cell(x.bank)}<span class="cv sum">${moneyShort(x.total)}</span></div>`)}
+      <div class="ct-row ct-total"><span class="ct-m"><strong>Toplam</strong></span>${cell(sum((x) => x.firm), true)}${hasS && cell(sum((x) => x.savings), true)}${hasB && cell(sum((x) => x.bank), true)}<span class="cv sum">${moneyShort(st.total)}</span></div>
     </div>
     <p class="caption center">Müşteri planı salt okunur · Taksitleri düzenlemek için Firma planına geç</p>`;
 }
@@ -649,15 +657,15 @@ function CashPanel({ plan, a }) {
 function CostCard({ a, onClick }) {
   const down = a.rows.filter((r) => r.kind === Kind.DOWN).reduce((s, r) => s + r.amount, 0);
   const interims = a.rows.filter((r) => r.kind === Kind.INTERIM);
+  // Sıra (kullanıcı isteği): liste, kampanyalı, peşinat, ara ödemeler, banka kredisi, tahsisat, taksit; toplam ayrıca büyük.
   const facts = [['Liste fiyatı', moneyShort(a.listPrice)]];
-  if (a.basePrice !== a.listPrice) facts.push(['Kampanyalı fiyat', moneyShort(a.basePrice)]);
+  if (a.basePrice < a.listPrice - 0.5) facts.push(['Kampanyalı fiyat', moneyShort(a.basePrice)]);
   if (down > 0) facts.push(['Peşinat', moneyShort(down)]);
+  if (interims.length) facts.push(['Ara ödemeler', interims.every((r) => r.amount === interims[0].amount) ? `${interims.length} × ${moneyShort(interims[0].amount)}` : `${interims.length} · ${moneyShort(interims.reduce((s, r) => s + r.amount, 0))}`]);
   if (a.loan) facts.push(['Banka kredisi', moneyShort(a.loan.principal)]);
   if (a.savings) facts.push([`Tahsisat (${a.savings.allocationMonth}. ay)`, moneyShort(a.savings.amount)]);
-  if (interims.length) facts.push(['Ara ödemeler', interims.every((r) => r.amount === interims[0].amount) ? `${interims.length} × ${moneyShort(interims[0].amount)}` : `${interims.length} · ${moneyShort(interims.reduce((s, r) => s + r.amount, 0))}`]);
   // Firma vadesi yoksa (kredi kalanı karşılıyor) taksit satırı yok.
   if (a.installmentCount > 0) facts.push([`${a.installmentCount} × taksit`, a.installment != null ? money(a.installment) : '—']);
-  facts.push(['Toplam ödeme', moneyShort(a.total)]);
   const b = costBreakdown(a);
   const parts = [['İskonto', b.discount], ['Peşinat ve ara ödemeler', b.downInterim], ['Banka kredisi', b.bank], ['Tahsisat', b.allocation], ['Firma kredisi', b.firm]].filter(([, v]) => Math.abs(v) >= 1);
   return html`
@@ -666,12 +674,13 @@ function CostCard({ a, onClick }) {
         <div><div class="r-label">Maliyet oranı</div><div class="r-big">${a.costRatio != null ? percent(a.costRatio) : '—'}</div></div>
         <div class="right"><div class="r-label">Toplam NBD</div><div class="r-mid">${moneyShort(a.pvAtBase)}</div></div>
       </div>
-      <div class="cc-facts">${facts.map(([l, v]) => html`<div class="cc-fact"><span>${l}</span><strong>${v}</strong></div>`)}</div>
       ${parts.length > 0 && html`<div class="cc-break">
         <div class="cb-title">Maliyet kırılımı</div>
         ${parts.map(([l, v]) => html`<div class="cb-row"><span>${l}${v < 0 ? ' (kazanç)' : ''}</span><small>${moneyShort(v)}</small><strong>${percent(b.ratio(v))}</strong></div>`)}
         <div class="cb-row total"><span>Toplam maliyet</span><small>${moneyShort(b.total)}</small><strong>${percent(b.ratio(b.total))}</strong></div>
       </div>`}
+      <div class="cc-facts">${facts.map(([l, v]) => html`<div class="cc-fact"><span>${l}</span><strong>${v}</strong></div>`)}</div>
+      <div class="cc-total"><span>Toplam ödeme</span><strong>${money(a.total)}</strong></div>
       <div class="r-note">Hedef maliyeti değiştirmek için dokun</div>
     </button>`;
 }

@@ -722,3 +722,30 @@ body.modal-open { overflow: hidden; }
 .sh-bar { margin-right: 4px; }
 .sh-ic { transition: background .15s, color .15s; }
 .sec-head.open .sh-ic, .sec-head:not(button) .sh-ic { background: #fff; color: #1C2B6E; }
+
+/* Maliyet kartı: kırılım oranın hemen altında, büyük toplam ödeme; müşteri özetinde not satırı ve üçlü kutular. */
+.cc-total { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 10px 14px; border-radius: 14px; background: rgba(255, 255, 255, .2); }
+.cc-total span { font-size: 13px; opacity: .9; } .cc-total strong { font-size: 24px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.cc-facts.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cc-fact em { font-style: normal; font-size: 11px; opacity: .8; }
+.cost-card .cc-facts + .cc-facts { margin-top: 8px; }
+.cost-card .cc-break { margin: 4px 0 10px; }
+/* Müşterinin ödemeleri tablosu: beyaz kart, eşit aralıklı sütunlar, renkli noktalı başlıklar, peşin ve ara ödeme ayları tonlu. */
+.ctab { background: var(--card); border-radius: 18px; overflow: hidden; box-shadow: 0 1px 3px rgba(14, 22, 64, .06); }
+.ct-row { display: grid; grid-template-columns: 112px repeat(var(--cols), minmax(0, 1fr)); align-items: center; gap: 8px; padding: 9px 16px; border-top: 1px solid var(--sep); }
+.ct-head { border-top: 0; padding-top: 12px; padding-bottom: 10px; font-size: 11.5px; color: var(--label2); }
+.ct-head .h { text-align: right; display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-weight: 500; }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.dot.firm { background: #2F5FE0; } .dot.sav { background: #0E8E9E; } .dot.bank { background: #1C2B6E; }
+.ct-m { display: flex; flex-direction: column; min-width: 0; }
+.ct-m strong { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+.ct-m strong em { font-style: normal; font-size: 10px; font-weight: 600; color: var(--teal); background: var(--teal-soft); border-radius: 6px; padding: 1px 5px; }
+.ct-m small { font-size: 11px; color: var(--label2); white-space: nowrap; }
+.cv { text-align: right; font-size: 13px; color: color-mix(in srgb, var(--label) 82%, transparent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cv.none { color: var(--label3); } .cv.b { font-weight: 600; }
+.cv.sum { font-weight: 600; color: var(--label); font-size: 13.5px; }
+.ct-row.zero { background: color-mix(in srgb, var(--tint-soft) 55%, transparent); } .ct-row.zero .ct-m strong { color: var(--wordmark); }
+.ct-row.interim { background: color-mix(in srgb, var(--teal-soft) 60%, transparent); }
+.ct-total { background: var(--fill); padding-top: 12px; padding-bottom: 12px; }
+.ct-total .cv.sum { color: var(--tint); font-weight: 700; }
+@media (max-width: 480px) { .ct-row { grid-template-columns: 82px repeat(var(--cols), minmax(0, 1fr)); gap: 4px; padding: 9px 12px; } .cv { font-size: 12px; } }

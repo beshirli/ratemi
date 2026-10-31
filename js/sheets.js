@@ -1,6 +1,6 @@
 // Pencereler: baz oran, tutar, blok, tek ödeme, satır düzenleme, hedef maliyet, ad, çakışma, şablondan plan, PDF.
 import { html, useState } from '../vendor/preact-htm.js';
-import { Finance, Kind, RowEdits, sortRows, payDate, DateX, Solve, valueOf, SavingsFinance, basePrice, savingsAmount } from './finance.js';
+import { Finance, Kind, RowEdits, sortRows, payDate, DateX, Solve, valueOf, SavingsFinance, basePrice, savingsAmount, DISCLAIMER } from './finance.js';
 import { money, moneyShort, percent, dateShort, dateMid, dayShift, editable } from './format.js';
 import {
   Sheet, SheetTitle, GradHeader, GradientButton, OutlineButton, NumberField, FieldBox, Chip, Segmented,
@@ -273,6 +273,7 @@ export function LoanSheet({ loan, start, onClose }) {
         <span>${moneyShort(loan.principal)} · ${loan.months} ay · aylık ${percent(loan.rate)}${taxed ? ` (vergili ${percent(loan.effectiveRate)})` : ''}</span>
         <span>Taksit ${money(loan.payment)} · toplam ${moneyShort(loan.totalPayment)}</span>
       </div>
+      <p class="caption legal">${DISCLAIMER.loan}</p>
       <div class="loan-table">
         <div class="lt-head"><span>No</span><span>Tarih</span><span>Taksit</span><span>Anapara</span><span>${taxed ? 'Kâr payı + vergi' : 'Kâr payı'}</span><span>Kalan</span></div>
         ${loan.rows.map((r) => html`<div class="lt-row" key=${r.month}><span>${r.month}</span><span>${dateMid(DateX.plusMonths(start, r.month))}</span>
@@ -290,6 +291,7 @@ export function SavingsSheet({ plan, start, onClose }) {
         <span>${moneyShort(plan.amount)} · ${plan.months} ay · tahsisat ${plan.allocationMonth}. ay</span>
         <span>Organizasyon ücreti ${moneyShort(plan.fee)} · toplam ${moneyShort(plan.totalPaid)}</span>
       </div>
+      <p class="caption legal">${DISCLAIMER.savings}</p>
       <div class="loan-table">
         <div class="lt-head sv"><span>Ay</span><span>Tarih</span><span>Tasarruf</span><span>Ücret</span><span>Birikim</span></div>
         ${plan.rows.map((r) => html`<div class=${'lt-row sv' + (r.allocation ? ' alloc' : '')} key=${r.month}><span>${r.month === 0 ? 'P' : r.month}</span>

@@ -1,6 +1,6 @@
 // PDF çıktıları: tarayıcının yazdırma penceresinde "PDF olarak kaydet". Plan mavi → turkuaz, teklif yeşil, çevirici lila.
 import { html } from '../vendor/preact-htm.js';
-import { Kind, payDate, Offers, Conversion, ValueConverter, Finance, period, DateX, isCash, customerRows } from './finance.js';
+import { Kind, payDate, Offers, Conversion, ValueConverter, Finance, period, DateX, isCash, customerRows, DISCLAIMER } from './finance.js';
 import { money, moneyShort, percent, dateMid, editable } from './format.js';
 
 const today = () => dateMid(DateX.today());
@@ -105,6 +105,7 @@ function PlanDoc({ plan, a, fields, rep }) {
 function SavingsPart({ plan, start }) {
   return html`
     <h2 class="pr-h2">Tasarruf Finansman Ödeme Planı</h2>
+    <p class="pr-legal">${DISCLAIMER.savings}</p>
     <div class="pr-boxes">
       <${Box} label="Sözleşme tutarı" value=${moneyShort(plan.amount)} tone="teal" />
       <${Box} label="Şirkete peşinat" value=${moneyShort(plan.down)} tone="teal" />
@@ -126,6 +127,7 @@ function LoanPart({ loan, start }) {
   const taxed = loan.taxRate > 0;
   return html`
     <h2 class="pr-h2">Banka Kredisi Ödeme Planı</h2>
+    <p class="pr-legal">${DISCLAIMER.loan}</p>
     <div class="pr-boxes">
       <${Box} label="Kredi tutarı" value=${moneyShort(loan.principal)} tone="teal" />
       <${Box} label="Vade" value=${`${loan.months} ay`} tone="teal" />

@@ -437,14 +437,29 @@ export function costBreakdown(a) {
  */
 export function customerRows(a, start) {
   const map = new Map();
-  const at = (m) => { if (!map.has(m)) map.set(m, { month: m, date: null, firm: 0, savings: 0, bank: 0 }); return map.get(m); };
+  const at = (m) => { if (!map.has(m)) map.set(m, { month: m, date: null, firm: 0, savings: 0, bank: 0, interim: 0 }); return map.get(m); };
   a.rows.filter((r) => r.kind === Kind.DOWN || r.kind === Kind.INSTALLMENT || r.kind === Kind.INTERIM).forEach((r) => {
     const x = at(r.month); x.firm += r.amount; if (x.date == null) x.date = payDate(r, start);
+    if (r.kind === Kind.INTERIM) x.interim += r.amount;
   });
   if (a.savings) a.savings.rows.filter((r) => r.saving + r.fee > 0).forEach((r) => { at(r.month).savings += r.saving + r.fee; });
   if (a.loan) a.loan.rows.forEach((r) => { at(r.month).bank += r.payment; });
   return [...map.values()].sort((x, y) => x.month - y.month)
-    .map((x) => ({ ...x, date: x.date ?? DateX.plusMonths(start, x.month), total: x.firm + x.savings + x.bank }));
+    .map((x) => ({ ...x, date: x.date ?? DateX.plusMonths(start, x.month), total: x.firm + x.savings + x.bank, regular: x.firm + x.savings + x.bank - x.interim }));
+}
+
+/** Müşteri planı özeti (Android CustomerStats): peşinat, peşin gün toplamı, ara ödemeler, aylık (ara ödeme hariç) en düşük / ortalama / en yüksek. */
+export function customerStats(rows) {
+  const zero = rows.find((x) => x.month === 0);
+  const monthly = rows.filter((x) => x.month > 0 && x.regular > 0.5);
+  const max = monthly.reduce((m, x) => (!m || x.regular > m.regular ? x : m), null);
+  return {
+    total: rows.reduce((t, x) => t + x.total, 0), down: zero ? zero.firm : 0, dayZero: zero ? zero.total : 0,
+    interimCount: rows.filter((x) => x.interim > 0).length, interimTotal: rows.reduce((t, x) => t + x.interim, 0),
+    minMonthly: monthly.length ? Math.min(...monthly.map((x) => x.regular)) : 0,
+    avgMonthly: monthly.length ? monthly.reduce((t, x) => t + x.regular, 0) / monthly.length : 0,
+    maxMonthly: max ? max.regular : 0, maxInterim: max ? max.interim : 0,
+  };
 }
 
 // --- Satır düzenleme ---
@@ -559,4 +574,10 @@ export const Solve = {
     const d = bisect(f, 0, hi, target, true);
     return d == null ? null : Math.round(d);
   },
+};
+
+/** Yasal not: banka kredisi ve tasarruf finansmanı ödeme planları bilgi amaçlıdır (Android Disclaimers). */
+export const DISCLAIMER = {
+  loan: "Bu kredi ödeme planı bilgi amaçlıdır. Geçerli olan, krediyi veren bankanın kredi sözleşmesinde ve düzenleyeceği ödeme planında yer alan koşullardır.",
+  savings: "Bu tasarruf finansman ödeme planı bilgi amaçlıdır. Geçerli olan, tasarruf finansman şirketinin sözleşmesinde ve düzenleyeceği ödeme planında yer alan koşullardır.",
 };
