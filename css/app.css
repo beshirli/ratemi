@@ -663,7 +663,7 @@ body.modal-open { overflow: hidden; }
 .tone-turq { --tone: #22BFD0; --tone-ink: #0E8E9E; --tone-soft: #DFF4F7; --tone-wash: #EAF7F9; }
 .tone-petrol { --tone: #0B7380; --tone-ink: #0B7380; --tone-soft: #DFF1F2; --tone-wash: #E9F4F5; }
 .sec-head { display: flex; align-items: center; gap: 12px; width: 100%; height: 76px; box-sizing: border-box; padding: 0 16px 0 0; text-align: left; color: #fff;
-  background: linear-gradient(115deg, #0E1640 0%, #1C2B6E 45%, #2F5FE0 100%); border-radius: 18px; overflow: hidden; flex: none; }
+  background: linear-gradient(115deg, #1C2B6E 0%, #3456DE 50%, #22BFD0 100%); border-radius: 18px; overflow: hidden; flex: none; }
 .acc .sec-head { border-radius: 0; }
 .sh-bar { width: 4px; align-self: stretch; background: var(--tone); flex: none; }
 .sh-no { width: 22px; height: 22px; border-radius: 11px; background: rgba(255, 255, 255, .16); font-size: 11.5px; font-weight: 600; display: grid; place-items: center; flex: none; }
