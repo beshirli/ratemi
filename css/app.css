@@ -589,13 +589,13 @@ body.modal-open { overflow: hidden; }
 .st-name .st-long { display: none; }
 @media (min-width: 700px) { .st-name .st-long { display: inline; } .st-name .st-short { display: none; } }
 
-/* Firma planı: kümülatif tahsilat (liste fiyatının %). Telefonda tutarın altında, genişte ayrı sütun. */
-.pt-row:has(.c-cum), .pt-total:has(.c-cum) { grid-template-areas: "no amt pv lock" "date cum pv lock"; }
+/* Firma planı: kümülatif tahsilat ve kümülatif NBD (liste fiyatının %): tutarın ve NBD'nin altında. */
+.pt-row:has(.c-cum), .pt-total:has(.c-cum) { grid-template-areas: "no amt pv lock" "date cum pvc lock"; }
 .c-cum { grid-area: cum; text-align: right; font-size: 11px; font-weight: 600; color: var(--teal); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .c-cum.full { color: var(--green); }
-.pt-head .c-cum { display: none; }
+.c-pvc { grid-area: pvc; text-align: right; font-size: 11px; font-weight: 600; color: var(--indigo); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pt-head .c-cum, .pt-head .c-pvc { display: none; }
+.pt-total .c-pvc { font-weight: 700; }
 @container (min-width: 600px) {
-  .ptable:has(.pt-row .c-cum) :is(.pt-head, .pt-row, .pt-total), .pt-row:has(.c-cum), .pt-total:has(.c-cum) { grid-template-columns: 110px minmax(0, 1fr) 140px 96px 110px 48px; grid-template-areas: "no date amt cum pv lock"; }
-  .pt-head .c-cum { display: block; }
-  .c-cum em { display: none; }
+  .pt-row:has(.c-cum), .pt-total:has(.c-cum) { grid-template-areas: "no date amt pv lock" "no date cum pvc lock"; }
 }

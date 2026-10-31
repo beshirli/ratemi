@@ -474,9 +474,10 @@ function ResultPanel({ plan, a }) {
     </div>
     <div class="pill-row"><${BaseRatePill} compact /><span class="caption">NBD bu oranla · satıra dokun: düzenle</span></div>
     <div class="ptable">
-      <div class="pt-head"><span class="c-no">Sıra</span><span class="c-date">Tarih</span><span class="c-amt">Tutar</span><span class="c-cum">Tahsilat</span><span class="c-pv">NBD</span><span class="c-lock" /></div>
-      ${rows.map((p, i) => html`<${TableRow} key=${p.id} p=${p} start=${start} pv=${a.pv(p)} collected=${a.listPrice > 0 ? rows.slice(0, i + 1).reduce((t, r) => t + r.amount, 0) / a.listPrice : null} onClick=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && editRow(p)} onLock=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && ops.toggleLock(p.id)} />`)}
-      <div class="pt-total"><span class="c-no">Toplam</span><span class="c-date" /><span class="c-amt">${money(a.total)}</span>${a.listPrice > 0 && html`<span class="c-cum full">Σ ${percent(a.total / a.listPrice, 1)}<em> tahsil</em></span>`}<span class="c-pv">${moneyShort(a.pvAtBase)}</span><span class="c-lock" /></div>
+      <div class="pt-head"><span class="c-no">Sıra</span><span class="c-date">Tarih</span><span class="c-amt">Tutar</span><span class="c-cum">Tahsilat</span><span class="c-pv">NBD</span><span class="c-pvc">NBD Σ</span><span class="c-lock" /></div>
+      ${rows.map((p, i) => html`<${TableRow} key=${p.id} p=${p} start=${start} pv=${a.pv(p)} collected=${a.listPrice > 0 ? rows.slice(0, i + 1).reduce((t, r) => t + r.amount, 0) / a.listPrice : null}
+        collectedPv=${a.listPrice > 0 ? rows.slice(0, i + 1).reduce((t, r) => t + a.pv(r), 0) / a.listPrice : null} onClick=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && editRow(p)} onLock=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && ops.toggleLock(p.id)} />`)}
+      <div class="pt-total"><span class="c-no">Toplam</span><span class="c-date" /><span class="c-amt">${money(a.total)}</span>${a.listPrice > 0 && html`<span class="c-cum full">Σ ${percent(a.total / a.listPrice, 1)}<em> tahsil</em></span>`}<span class="c-pv">${moneyShort(a.pvAtBase)}</span>${a.listPrice > 0 && html`<span class="c-pvc">Σ ${percent(a.pvAtBase / a.listPrice, 1)}</span>`}<span class="c-lock" /></div>
     </div>
     ${loanSavingsCards(app, a, start)}`;
 }
@@ -587,7 +588,7 @@ function CostCard({ a, onClick }) {
     </button>`;
 }
 
-function TableRow({ p, start, pv, onClick, onLock, collected }) {
+function TableRow({ p, start, pv, onClick, onLock, collected, collectedPv }) {
   const cls = p.kind === Kind.DOWN ? 'down' : p.kind === Kind.CREDIT || p.kind === Kind.ALLOCATION ? 'credit' : p.kind === Kind.INTERIM ? 'interim' : p.kind === Kind.GRACE ? 'grace' : p.manual ? 'manual' : 'inst';
   const label = p.kind === Kind.DOWN ? 'Peşinat' : p.kind === Kind.CREDIT ? 'Banka kredisi' : p.kind === Kind.ALLOCATION ? `${p.month}. Ay · tahsisat` : p.kind === Kind.INTERIM ? `${p.month}. Ay · ara` : `${p.month}. Ay`;
   return html`
@@ -597,6 +598,7 @@ function TableRow({ p, start, pv, onClick, onLock, collected }) {
       <span class="c-amt">${money(p.amount)}</span>
       ${collected != null && html`<span class=${'c-cum' + (collected >= 1 - 1e-9 ? ' full' : '')}>Σ ${percent(collected, 1)}<em> tahsil</em></span>`}
       <span class="c-pv">${moneyShort(pv)}</span>
+      ${collectedPv != null && html`<span class="c-pvc">Σ ${percent(collectedPv, 1)}</span>`}
       ${p.kind === Kind.CREDIT || p.kind === Kind.ALLOCATION ? html`<span class="c-lock" />` : html`<button class="c-lock icon-btn" title=${p.locked ? 'Kilitli, kilidi aç' : 'Serbest, kilitle'} onClick=${(e) => { e.stopPropagation(); onLock(); }}><${Icon} name=${p.locked ? 'lock' : 'unlock'} size=${17} /></button>`}
     </div>`;
 }
