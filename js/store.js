@@ -17,6 +17,8 @@ export const defaultSettings = () => ({
   creditEnabled: true,
   // Ödeme planında tahsisat (tasarruf finansmanı) adımı açık mı.
   savingsEnabled: true,
+  // Ana sayfada Terzi usulü plan aracı açık mı (Ayarlar › Ödeme planı).
+  tailorEnabled: true,
   // Terzi usulü plan: en yüksek maliyet oranı ve varsayılan kredi / tasarruf koşulları (müşteride değişebilir).
   tailorCostLimit: 0.15,
   tailorCredit: defaultCreditTerms(),

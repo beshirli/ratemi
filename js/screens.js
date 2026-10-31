@@ -70,11 +70,11 @@ export function HomeScreen() {
             <button class="tool grad-offer" onClick=${app.newOffer}><span class="icon-tile on-grad"><${Icon} name="trend" /></span><span class="tool-title">Teklifin gerçek oranı</span><span class="tool-cap">IRR analizörü</span></button>
             <button class="tool grad-conv" onClick=${app.newConversion}><span class="icon-tile on-grad"><${Icon} name="clock" /></span><span class="tool-title">Değer çevirici</span><span class="tool-cap">Bugün ↔ gelecek</span></button>
           </div>
-          <button class="tool-wide grad-tailor" onClick=${app.openTailor}>
+          ${app.settings.tailorEnabled !== false && html`<button class="tool-wide grad-tailor" onClick=${app.openTailor}>
             <span class="icon-tile on-grad"><${Icon} name="sliders" /></span>
             <span class="grow"><span class="tool-title">Terzi usulü plan</span><span class="tool-cap">Müşterinin gücüne göre en uygun üç plan</span></span>
             <${Icon} name="forward" size=${20} />
-          </button>
+          </button>`}
         </div>
         <div class="list-head"><span class="section-label">Kayıtlarım · ${shown.length}</span><span class="caption">Planlar “Kaydet” ile saklanır</span></div>
         <div class="filters">
@@ -322,8 +322,10 @@ export function SettingsScreen() {
             checked=${s.creditEnabled !== false} onChange=${(v) => app.updateSettings({ ...s, creditEnabled: v })} />
           <${SwitchRow} title="Tahsisat (tasarruf finansmanı)" caption=${s.savingsEnabled !== false ? 'Ödeme planında Tahsisat adımı ve sihirbazı var' : 'Tahsisat adımı gizli; tahsisat girilmiş planlarda görünmeye devam eder'}
             checked=${s.savingsEnabled !== false} onChange=${(v) => app.updateSettings({ ...s, savingsEnabled: v })} />
+          <${SwitchRow} title="Terzi usulü plan" caption=${s.tailorEnabled !== false ? 'Ana sayfada müşterinin gücüne göre plan öneren araç var' : 'Ana sayfada Terzi usulü plan aracı gizli'}
+            checked=${s.tailorEnabled !== false} onChange=${(v) => app.updateSettings({ ...s, tailorEnabled: v })} />
         </${SectionCard}>
-        <${TailorSettings} />
+        ${s.tailorEnabled !== false && html`<${TailorSettings} />`}
         <${SectionCard} title="Yeni planda peşin iskonto">
           <${SwitchRow} title="Varsayılan olarak açık" checked=${s.discountOn} onChange=${(v) => app.updateSettings({ ...s, discountOn: v })} />
           ${s.discountOn && html`<${FieldBox} label="Varsayılan oran"><span class="unit">%</span><${NumberField} value=${s.discountPercent} onChange=${(v) => v != null && app.updateSettings({ ...s, discountPercent: v })} /></${FieldBox}>`}

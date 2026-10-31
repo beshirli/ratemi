@@ -12,6 +12,7 @@
   --g-logo: linear-gradient(120deg, #3456DE, #22BFD0);
   --g-offer: linear-gradient(120deg, #12873C, #3CC795);
   --g-conv: linear-gradient(120deg, #5048CF, #A77BEA);
+  --g-customer: linear-gradient(120deg, #0B7380, #2F5FE0);
   --g-tailor: linear-gradient(120deg, #D9475A, #F2994A);
   --r: 18px; --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --bb-h: 68px; --safe-b: env(safe-area-inset-bottom, 0px);
@@ -568,3 +569,18 @@ body.modal-open { overflow: hidden; }
 .tl-band strong, .tl-facts strong { font-size: 14px; color: var(--label); }
 .tl-open { display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: var(--c); font-size: 14px; }
 @media (min-width: 1180px) { .tl-results { position: sticky; top: 84px; } }
+
+/* Plan adımı: Firma · Müşteri planı */
+.grad-customer { background: var(--g-customer); color: #fff; }
+.view-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border-radius: 14px; background: var(--fill); margin-bottom: 12px; }
+.view-switch button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 42px; border-radius: 11px; font-weight: 700; font-size: 14px; color: var(--label2); }
+.view-switch button.on { color: #fff; }
+.ctable .pt-head, .ctable .pt-row, .ctable .pt-total { display: flex; align-items: center; gap: 4px; }
+.ctable .c-no { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
+.ctable .c-no small { white-space: nowrap; }
+.ctable .c-no small { font-size: 11px; color: var(--label2); }
+.ctable .c-part { width: 78px; flex: none; text-align: right; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ctable .c-sum { width: 92px; flex: none; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ctable .firm { color: var(--tint); } .ctable .sav { color: var(--teal); } .ctable .bank { color: var(--wordmark); }
+.ctable .pt-total .c-part { font-weight: 700; }
+@media (min-width: 700px) { .ctable .c-part { width: 110px; } .ctable .c-sum { width: 120px; } }

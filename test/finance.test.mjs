@@ -1,5 +1,5 @@
 // Android FinanceTest'teki örnek rakamlar: node test/finance.test.mjs
-import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice, Solve, isCash, BankLoan, noTerm, SavingsFinance } from '../js/finance.js';
+import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice, Solve, isCash, BankLoan, noTerm, SavingsFinance, customerRows } from '../js/finance.js';
 import { parseNumber } from '../js/format.js';
 import { suggest, defaultCreditTerms, defaultSavingsTerms } from '../js/tailor.js';
 let fails = 0;
@@ -105,6 +105,13 @@ eq('terzi: en düşük taksit', Math.min(...picks.map((o) => o.maxMonthly)), tr.
 eq('terzi: en düşük maliyet', Math.min(...picks.map((o) => o.cost)), tr.lowestCost.cost, 1e-9);
 eq('terzi: balon ara ödeme', 1, tr.shortest.plan.input.interims.some((x) => x.month === 12 && x.value.amount === 300000) ? 1 : 0);
 console.log(`terzi: ${tr.tried} aday; kısa ${tr.shortest.lastMonth}. ay, taksit ${Math.round(tr.lowestPayment.maxMonthly)}, maliyet ${tr.lowestCost.cost.toFixed(4)}`);
+for (const o of picks) {
+  const c = customerRows(o.analysis, start);
+  const sum = (f) => c.reduce((t, x) => t + f(x), 0);
+  eq('müşteri: firma toplamı', o.analysis.rows.filter((r) => r.kind !== Kind.CREDIT && r.kind !== Kind.ALLOCATION).reduce((t, r) => t + r.amount, 0), sum((x) => x.firm), 0.01);
+  eq('müşteri: banka toplamı', o.analysis.loan ? o.analysis.loan.rows.reduce((t, r) => t + r.payment, 0) : 0, sum((x) => x.bank), 0.01);
+  eq('müşteri: tasarruf toplamı', o.analysis.savings ? o.analysis.savings.totalPaid : 0, sum((x) => x.savings), 0.01);
+}
 const tr2 = suggest(tailorIn(5000, false, false), 0.0299, taxes);
 eq('terzi: bütçe yetmez', 1, !tr2.found && tr2.shortfall && tr2.closest ? 1 : 0);
 console.log(fails ? `${fails} HATA` : 'Tüm testler geçti');

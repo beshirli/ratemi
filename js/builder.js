@@ -3,7 +3,7 @@
 // Masaüstünde (WIDE ve üstü) tek sayfa: solda dört girdi bölümü alt alta, sağda anında oluşan plan.
 // Her değişiklik planı anında yeniden hesaplar; kayıt isteğe bağlı ("Kaydet"), şablon ayrı düğmeyle.
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash, noTerm, creditAmount, SavingsFinance, savingsAmount } from './finance.js';
+import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash, noTerm, creditAmount, SavingsFinance, savingsAmount, customerRows } from './finance.js';
 import { money, moneyShort, percent, dateMid, dayShift, editable } from './format.js';
 import {
   Icon, IconButton, GradientButton, OutlineButton, TextAction, Chip, Segmented, SwitchRow, Badge,
@@ -438,7 +438,16 @@ function ResultPanel({ plan, a }) {
   const ops = app.planOps;
   const rows = a.rows;
   const start = plan.input.startDate;
+  // Kredi ya da tahsisat varsa iki plan: Firma (tahsilat, düzenlenebilir) · Müşteri (konsolide ödemeler).
+  const [customer, setCustomer] = useState(false);
   if (isCash(plan.input)) return html`<${CashPanel} plan=${plan} a=${a} />`;
+  const dual = !!(a.loan || a.savings);
+  const viewSwitch = dual && html`
+    <div class="view-switch">
+      <button class=${!customer ? 'on grad-logo' : ''} onClick=${() => setCustomer(false)}><${Icon} name="bank" size=${18} />Firma planı</button>
+      <button class=${customer ? 'on grad-customer' : ''} onClick=${() => setCustomer(true)}><${Icon} name="person" size=${18} />Müşteri planı</button>
+    </div>`;
+  if (dual && customer) return html`${viewSwitch}<${CustomerPanel} a=${a} start=${plan.input.startDate} />${loanSavingsCards(app, a, plan.input.startDate)}`;
   const editRow = (p) => app.sheet(html`<${RowEditSheet} p=${p} rows=${rows} start=${start} rate=${a.schedule.rate} target=${a.schedule.target} onClose=${app.closeSheet}
     onApply=${(amount, shift, locked, scope) => { app.closeSheet(); ops.editRow(p.id, amount, shift, locked, scope); }}
     onDelete=${() => { app.closeSheet(); ops.deleteRow(p.id); }} />`);
@@ -451,12 +460,13 @@ function ResultPanel({ plan, a }) {
     onRate=${(r) => { app.closeSheet(); app.updateInput({ ...plan.input, rate: r }); }}
     onDiscount=${(d) => { app.closeSheet(); app.updateInput({ ...plan.input, discountOn: d > 0, discount: { amount: d, percent: false } }); }} />`);
   return html`
+    ${viewSwitch}
     ${a.schedule.overflow
       ? html`<div class="alert">Peşinat, ara ödemeler ve kilitli satırların bugünkü değeri hedefi ${moneyShort(a.schedule.overflow.excess)} aşıyor. Peşinatı / ara ödemeleri azalt ya da kilitleri aç.</div>`
       : html`<${CostCard} a=${a} onClick=${target} />`}
     ${plan.rows && !rows.some((r) => !r.locked) && html`<p class="caption amber">Dengelenecek kilitsiz taksit yok; maliyet oranı değişebilir.</p>`}
     <div class="list-head">
-      <span class="section-label">Tablo · ${rows.length} satır</span>
+      <span class="section-label">${dual ? 'Firmanın tahsilatı' : 'Tablo'} · ${rows.length} satır</span>
       <span class="actions"><${TextAction} icon="add" onClick=${ops.addRow}>Satır</${TextAction}><${TextAction} icon="add" onClick=${block}>Blok taksit</${TextAction}></span>
     </div>
     <div class="pill-row"><${BaseRatePill} compact /><span class="caption">NBD bu oranla · satıra dokun: düzenle</span></div>
@@ -465,6 +475,12 @@ function ResultPanel({ plan, a }) {
       ${rows.map((p) => html`<${TableRow} key=${p.id} p=${p} start=${start} pv=${a.pv(p)} onClick=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && editRow(p)} onLock=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && ops.toggleLock(p.id)} />`)}
       <div class="pt-total"><span class="c-no">Toplam</span><span class="c-date" /><span class="c-amt">${money(a.total)}</span><span class="c-pv">${moneyShort(a.pvAtBase)}</span><span class="c-lock" /></div>
     </div>
+    ${loanSavingsCards(app, a, start)}`;
+}
+
+/** Plan adımındaki banka kredisi ve tahsisat kartları (dokununca ayrıntı penceresi). */
+function loanSavingsCards(app, a, start) {
+  return html`
     ${a.loan && html`
       <button class="card loan-card" onClick=${() => app.sheet(html`<${LoanSheet} loan=${a.loan} start=${start} onClose=${app.closeSheet} />`)}>
         <span class="icon-tile tone-teal"><${Icon} name="bank" size=${22} /></span>
@@ -479,6 +495,42 @@ function ResultPanel({ plan, a }) {
           <span class="caption">${a.savings.allocationMonth}. ay (${dateMid(DateX.plusMonths(start, a.savings.allocationMonth))}) · ${a.savings.months} × ${moneyShort(a.savings.firstPayment)}${a.savings.growth > 0 ? ' (artan)' : ''} · tasarruf planı için dokun</span></span>
         <${Icon} name="forward" size=${18} />
       </button>`}`;
+}
+
+/**
+ * Müşteri planı: degrade özet (toplam, peşin gün, en yüksek aylık, firmaya / tasarrufa / bankaya, son ödeme) ve ay ay
+ * konsolide tablo (yalnız kullanılan sütunlar). Salt okunur; düzenleme Firma planında.
+ */
+function CustomerPanel({ a, start }) {
+  const rows = customerRows(a, start);
+  const sum = (f) => rows.reduce((t, x) => t + f(x), 0);
+  const hasS = rows.some((x) => x.savings > 0), hasB = rows.some((x) => x.bank > 0);
+  const first = rows.find((x) => x.month === 0)?.total || 0;
+  const peak = Math.max(0, ...rows.filter((x) => x.month > 0).map((x) => x.total));
+  const last = rows[rows.length - 1];
+  const cell = (v, cls) => html`<span class=${'c-part ' + cls}>${v > 0 ? moneyShort(v) : '—'}</span>`;
+  return html`
+    <div class="cost-card grad-customer static">
+      <div class="r-label">Müşterinin toplam ödemesi</div>
+      <div class="r-big">${money(sum((x) => x.total))}</div>
+      <div class="cc-facts">
+        <div class="cc-fact"><span>Peşin gün</span><strong>${moneyShort(first)}</strong></div>
+        <div class="cc-fact"><span>En yüksek aylık</span><strong>${moneyShort(peak)}</strong></div>
+        <div class="cc-fact"><span>Firmaya</span><strong>${moneyShort(sum((x) => x.firm))}</strong></div>
+        ${hasS && html`<div class="cc-fact"><span>Tasarrufa</span><strong>${moneyShort(sum((x) => x.savings))}</strong></div>`}
+        ${hasB && html`<div class="cc-fact"><span>Bankaya</span><strong>${moneyShort(sum((x) => x.bank))}</strong></div>`}
+      </div>
+      ${last && html`<div class="r-note">Son ödeme ${last.month}. ay · ${dateMid(last.date)}</div>`}
+    </div>
+    <div class="list-head"><span class="section-label">Müşterinin ödemeleri · ${rows.length} ay</span></div>
+    <div class="ptable ctable">
+      <div class="pt-head"><span class="c-no">Sıra</span><span class="c-part firm">Firma</span>${hasS && html`<span class="c-part sav">Tasarruf</span>`}${hasB && html`<span class="c-part bank">Banka</span>`}<span class="c-sum">Toplam</span></div>
+      ${rows.map((x) => html`<div class=${'pt-row' + (x.month === 0 ? ' down' : '')} key=${x.month}>
+        <span class="c-no"><strong>${x.month === 0 ? 'Peşin' : `${x.month}. Ay`}</strong><small>${dateMid(x.date)}</small></span>
+        ${cell(x.firm, 'firm')}${hasS && cell(x.savings, 'sav')}${hasB && cell(x.bank, 'bank')}<span class="c-sum">${moneyShort(x.total)}</span></div>`)}
+      <div class="pt-total"><span class="c-no">Toplam</span>${cell(sum((x) => x.firm), 'firm')}${hasS && cell(sum((x) => x.savings), 'sav')}${hasB && cell(sum((x) => x.bank), 'bank')}<span class="c-sum">${moneyShort(sum((x) => x.total))}</span></div>
+    </div>
+    <p class="caption center">Müşteri planı salt okunur · Taksitleri düzenlemek için Firma planına geç</p>`;
 }
 
 /** Peşin satış: ödenecek tutar kartı ve tek satırlık tablo. */

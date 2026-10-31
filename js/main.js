@@ -467,7 +467,7 @@ function Sidebar({ tab, screen }) {
       <${Item} icon="table" label="Ödeme planı" active=${screen === 'plan'} onClick=${app.newPlan} />
       <${Item} icon="trend" label="Teklifin gerçek oranı" active=${screen === 'offer'} onClick=${app.newOffer} />
       <${Item} icon="clock" label="Değer çevirici" active=${screen === 'converter'} onClick=${app.newConversion} />
-      <${Item} icon="sliders" label="Terzi usulü plan" active=${screen === 'tailor'} onClick=${app.openTailor} />
+      ${app.settings.tailorEnabled !== false && html`<${Item} icon="sliders" label="Terzi usulü plan" active=${screen === 'tailor'} onClick=${app.openTailor} />`}
       <div class="grow" />
       <div class="sb-rate"><${BaseRatePill} /></div>
       <${Item} icon="settings" label="Ayarlar" active=${screen === 'settings'} onClick=${() => app.go('settings')} />

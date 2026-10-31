@@ -1,6 +1,6 @@
 // PDF çıktıları: tarayıcının yazdırma penceresinde "PDF olarak kaydet". Plan mavi → turkuaz, teklif yeşil, çevirici lila.
 import { html } from '../vendor/preact-htm.js';
-import { Kind, payDate, Offers, Conversion, ValueConverter, Finance, period, DateX, isCash } from './finance.js';
+import { Kind, payDate, Offers, Conversion, ValueConverter, Finance, period, DateX, isCash, customerRows } from './finance.js';
 import { money, moneyShort, percent, dateMid, editable } from './format.js';
 
 const today = () => dateMid(DateX.today());
@@ -58,6 +58,12 @@ function PlanDoc({ plan, a, fields, rep }) {
   const start = plan.input.startDate;
   const down = a.rows.filter((r) => r.kind === Kind.DOWN).reduce((s, r) => s + r.amount, 0);
   const interims = a.rows.filter((r) => r.kind === Kind.INTERIM);
+  // Kredi ya da tahsisat varsa müşteriye konsolide plan (firma + tasarruf + banka).
+  const dual = !!(a.loan || a.savings);
+  const crow = dual ? customerRows(a, start) : [];
+  const csum = (f) => crow.reduce((t, x) => t + f(x), 0);
+  const hasS = crow.some((x) => x.savings > 0), hasB = crow.some((x) => x.bank > 0);
+  const amt = (v) => (v > 0 ? money(v) : '—');
   return html`
     <div class="pr-page">
       <${Head} title="Ödeme Planı" grad="logo" rep=${rep} />
@@ -69,11 +75,19 @@ function PlanDoc({ plan, a, fields, rep }) {
         ${a.loan && html`<${Box} label="Banka kredisi" value=${moneyShort(a.loan.principal)} tone="teal" />`}
         ${a.savings && html`<${Box} label=${`Tahsisat (${a.savings.allocationMonth}. ay)`} value=${moneyShort(a.savings.amount)} tone="teal" />`}
         ${interims.length > 0 && html`<${Box} label="Ara ödemeler" value=${`${interims.length} · ${moneyShort(interims.reduce((s, r) => s + r.amount, 0))}`} tone="teal" />`}
-        ${a.installmentCount > 0 && html`<${Box} label=${`${a.installmentCount} × taksit`} value=${a.installment != null ? money(a.installment) : '—'} tone="blue" />`}
-        <${Box} label="Toplam ödeme" value=${moneyShort(a.total)} tone="blue" />
+        ${a.installmentCount > 0 && html`<${Box} label=${`${a.installmentCount} × ${dual ? 'firma taksiti' : 'taksit'}`} value=${a.installment != null ? money(a.installment) : '—'} tone="blue" />`}
+        ${dual && html`<${Box} label="En yüksek aylık ödeme" value=${moneyShort(Math.max(0, ...crow.filter((x) => x.month > 0).map((x) => x.total)))} tone="blue" />`}
+        <${Box} label="Toplam ödeme" value=${moneyShort(dual ? csum((x) => x.total) : a.total)} tone="blue" />
         ${showCost && html`<div class="pr-box cost grad-logo"><span>Maliyet oranı</span><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong><em>Baz oran ${percent(a.baseRate)} · NBD ${moneyShort(a.pvAtBase)}</em></div>`}
       </div>
-      <table class="pr-table">
+      ${dual ? html`<table class="pr-table">
+        <thead class="grad-logo"><tr><th>Sıra</th><th>Tarih</th><th class="num">Firma</th>${hasS && html`<th class="num">Tasarruf</th>`}${hasB && html`<th class="num">Banka</th>`}<th class="num">Toplam</th></tr></thead>
+        <tbody>
+          ${crow.map((x) => html`<tr class=${x.month === 0 ? 'down' : ''}><td>${x.month === 0 ? 'Peşin' : `${x.month}. Ay`}</td><td>${dateMid(x.date)}</td>
+            <td class="num c-firm">${amt(x.firm)}</td>${hasS && html`<td class="num c-sav">${amt(x.savings)}</td>`}${hasB && html`<td class="num c-bank">${amt(x.bank)}</td>`}<td class="num"><strong>${money(x.total)}</strong></td></tr>`)}
+        </tbody>
+        <tfoot><tr><td>Toplam</td><td /><td class="num">${money(csum((x) => x.firm))}</td>${hasS && html`<td class="num">${money(csum((x) => x.savings))}</td>`}${hasB && html`<td class="num">${money(csum((x) => x.bank))}</td>`}<td class="num">${money(csum((x) => x.total))}</td></tr></tfoot>
+      </table>` : html`<table class="pr-table">
         <thead class="grad-logo"><tr><th>Sıra</th><th>Tarih</th><th class="num">Tutar</th>${showCost && html`<th class="num">NBD</th>`}</tr></thead>
         <tbody>
           ${a.rows.map((p) => html`<tr class=${p.kind === Kind.DOWN ? 'down' : p.kind === Kind.INTERIM || p.kind === Kind.CREDIT || p.kind === Kind.ALLOCATION ? 'interim' : p.kind === Kind.GRACE ? 'grace' : ''}>
@@ -81,7 +95,7 @@ function PlanDoc({ plan, a, fields, rep }) {
             <td>${dateMid(payDate(p, start))}</td><td class="num">${money(p.amount)}</td>${showCost && html`<td class="num">${moneyShort(a.pv(p))}</td>`}</tr>`)}
         </tbody>
         <tfoot><tr><td>Toplam</td><td /><td class="num">${money(a.total)}</td>${showCost && html`<td class="num">${moneyShort(a.pvAtBase)}</td>`}</tr></tfoot>
-      </table>
+      </table>`}
       ${a.loan && html`<${LoanPart} loan=${a.loan} start=${plan.input.startDate} />`}
       ${a.savings && html`<${SavingsPart} plan=${a.savings} start=${plan.input.startDate} />`}
     </div>`;

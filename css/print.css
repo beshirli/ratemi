@@ -48,3 +48,5 @@ body { background: #fff !important; color: #141A2E; font: 10.5pt/1.35 'Inter', s
 /* Ek bölümler (banka kredisi, tasarruf finansmanı) üstteki plandan boşluk ve çizgiyle ayrılır. */
 .pr-h2 { font-size: 13pt; color: #1C2B6E; margin: 30pt 0 8pt; padding-top: 12pt; border-top: 2px solid #17A9B9; color: #0B7380; break-after: avoid; }
 .pr-table.loan td, .pr-table.loan th { font-size: 8pt; }
+
+.pr-table .c-firm { color: #2F5FE0; } .pr-table .c-sav { color: #0B7380; } .pr-table .c-bank { color: #1C2B6E; }

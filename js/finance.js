@@ -392,6 +392,22 @@ export function analyze(plan, baseRate, taxes) {
   };
 }
 
+/**
+ * Müşterinin konsolide ödeme planı (Android Analysis.customerRows): ay ay firmaya (peşinat, taksit, ara ödeme), tasarruf
+ * şirketine (taksit + ücret; 0. ayda şirkete peşinat) ve bankaya (kredi taksiti). Kredi ve tahsisat müşteride satır değil.
+ */
+export function customerRows(a, start) {
+  const map = new Map();
+  const at = (m) => { if (!map.has(m)) map.set(m, { month: m, date: null, firm: 0, savings: 0, bank: 0 }); return map.get(m); };
+  a.rows.filter((r) => r.kind === Kind.DOWN || r.kind === Kind.INSTALLMENT || r.kind === Kind.INTERIM).forEach((r) => {
+    const x = at(r.month); x.firm += r.amount; if (x.date == null) x.date = payDate(r, start);
+  });
+  if (a.savings) a.savings.rows.filter((r) => r.saving + r.fee > 0).forEach((r) => { at(r.month).savings += r.saving + r.fee; });
+  if (a.loan) a.loan.rows.forEach((r) => { at(r.month).bank += r.payment; });
+  return [...map.values()].sort((x, y) => x.month - y.month)
+    .map((x) => ({ ...x, date: x.date ?? DateX.plusMonths(start, x.month), total: x.firm + x.savings + x.bank }));
+}
+
 // --- Satır düzenleme ---
 
 /** scope: { type: 'only' | 'after' | 'range' | 'all', from, to } */
