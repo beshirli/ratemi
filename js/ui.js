@@ -40,6 +40,8 @@ const P = {
   up: 'M6 15l6-6 6 6',
   down: 'M6 9l6 6 6-6',
   moon: 'M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z',
+  // Tasarruf finansmanı / tahsisat: ev, kumbara yarığı ve para atan el.
+  savings: 'M3 11l9-7 9 7M5 9.5V20h14V9.5M8.5 16.5h7M12 14.8a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2zM12 11.6V8.5h4l3-2',
   tag: 'M20 12l-8 8-9-9V3h8zM7.5 7.5h.01',
   percent: 'M19 5L5 19M7 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
   shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z',

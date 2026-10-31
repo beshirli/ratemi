@@ -158,7 +158,7 @@ const SEC_TITLES = ['Ürün ve fiyat', 'Peşinat ve ara ödemeler', 'Banka kredi
 const SEC_COST = ['discount', 'downInterim', 'bank', 'allocation', 'firm'];
 // Her bölümün tonu (mavi ailesi): ince sol çizgi, blok simgesi, açık bölümün zemini.
 const SEC_TONE = ['indigo', 'sky', 'blue', 'turq', 'petrol'];
-const SEC_ICON = ['house', 'download', 'bank', 'clock', 'building'];
+const SEC_ICON = ['house', 'download', 'bank', 'savings', 'building'];
 const pctOf = (v, base) => (base > 0 ? '%' + editable(Math.round(v / base * 10000) / 100) : '—');
 
 /** Başlıktaki iki satırlık gruplu özet; değerler vurgulu. */
