@@ -1,8 +1,8 @@
 // Çevrimdışı çalışma: uygulama dosyaları önbellekte; yeni sürüm yayınlanınca VERSION artırılır.
-const VERSION = 'ratemi-v18';
+const VERSION = 'ratemi-v19';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css', 'css/print.css',
-  'js/main.js', 'js/ui.js', 'js/screens.js', 'js/builder.js', 'js/sheets.js', 'js/print.js', 'js/finance.js', 'js/format.js', 'js/store.js', 'js/account.js', 'js/cloud.js',
+  'js/main.js', 'js/ui.js', 'js/screens.js', 'js/builder.js', 'js/sheets.js', 'js/print.js', 'js/finance.js', 'js/format.js', 'js/store.js', 'js/account.js', 'js/cloud.js', 'js/tailor.js', 'js/tailorui.js',
   'vendor/preact-htm.js', 'img/logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-32.png', 'img/icon-180.png',
 ];
 

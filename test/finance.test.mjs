@@ -1,6 +1,7 @@
 // Android FinanceTest'teki örnek rakamlar: node test/finance.test.mjs
 import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice, Solve, isCash, BankLoan, noTerm, SavingsFinance } from '../js/finance.js';
 import { parseNumber } from '../js/format.js';
+import { suggest, defaultCreditTerms, defaultSavingsTerms } from '../js/tailor.js';
 let fails = 0;
 const eq = (name, exp, got, tol = 1e-9) => { const ok = Math.abs(exp - got) <= tol; if (!ok) fails++; console.log(`${ok ? 'OK  ' : 'FAIL'} ${name}: ${got} (beklenen ${exp})`); };
 const taxes = { HOUSING: { kkdf: 0, bsmv: 0 }, VEHICLE: { kkdf: 0.15, bsmv: 0.15 }, PERSONAL: { kkdf: 0.15, bsmv: 0.15 } };
@@ -90,5 +91,21 @@ const sB = analyze({ input: svIn2(sA.savings.allocationMonth + 12), rows: null, 
 eq('tahsisat ayı firma taksitini değiştirmez', sA.installment, sB.installment, 0.001);
 eq('geç tahsisat maliyeti artırır', 1, sB.costRatio > sA.costRatio ? 1 : 0);
 eq('tahsisat maliyeti', bpS * 0.4 * (1 - 1 / Math.pow(1.0299, sA.savings.allocationMonth)), sA.allocationCost, 0.01);
+// Terzi usulü plan: üç öneri sınır içinde; bütçe yetmezse en yakın plan ve eksik.
+const tailorIn = (monthly, credit = true, savings = true) => ({ loanType: 'HOUSING', listPrice: 4500000, discountPercent: 5, cashPower: 1500000, monthlyPower: monthly,
+  balloons: [{ month: 12, amount: 300000 }], maxMonths: null, allowCredit: credit, allowSavings: savings, costLimit: 0.15,
+  credit: defaultCreditTerms(), savings: defaultSavingsTerms(), startDate: start });
+const tr = suggest(tailorIn(120000), 0.0299, taxes);
+const picks = [tr.shortest, tr.lowestPayment, tr.lowestCost];
+eq('terzi: bulundu', 1, tr.found && picks.every(Boolean) ? 1 : 0);
+eq('terzi: maliyet ≤ sınır', 1, picks.every((o) => o.cost <= 0.15 + 1e-6) ? 1 : 0);
+eq('terzi: aylık ≤ güç', 1, picks.every((o) => o.maxMonthly <= 120000.5) ? 1 : 0);
+eq('terzi: en kısa', Math.min(...picks.map((o) => o.lastMonth)), tr.shortest.lastMonth);
+eq('terzi: en düşük taksit', Math.min(...picks.map((o) => o.maxMonthly)), tr.lowestPayment.maxMonthly, 1e-6);
+eq('terzi: en düşük maliyet', Math.min(...picks.map((o) => o.cost)), tr.lowestCost.cost, 1e-9);
+eq('terzi: balon ara ödeme', 1, tr.shortest.plan.input.interims.some((x) => x.month === 12 && x.value.amount === 300000) ? 1 : 0);
+console.log(`terzi: ${tr.tried} aday; kısa ${tr.shortest.lastMonth}. ay, taksit ${Math.round(tr.lowestPayment.maxMonthly)}, maliyet ${tr.lowestCost.cost.toFixed(4)}`);
+const tr2 = suggest(tailorIn(5000, false, false), 0.0299, taxes);
+eq('terzi: bütçe yetmez', 1, !tr2.found && tr2.shortfall && tr2.closest ? 1 : 0);
 console.log(fails ? `${fails} HATA` : 'Tüm testler geçti');
 process.exit(fails ? 1 : 0);

@@ -1,5 +1,6 @@
 // Kayıtlar ve ayarlar tarayıcının yerel deposunda (localStorage) saklanır; internete hiçbir şey gönderilmez.
 import { DefaultTaxes } from './finance.js';
+import { defaultCreditTerms, defaultSavingsTerms } from './tailor.js';
 
 const KEY_RECORDS = 'ratemi.records.v1';
 const KEY_SETTINGS = 'ratemi.settings.v1';
@@ -16,6 +17,10 @@ export const defaultSettings = () => ({
   creditEnabled: true,
   // Ödeme planında tahsisat (tasarruf finansmanı) adımı açık mı.
   savingsEnabled: true,
+  // Terzi usulü plan: en yüksek maliyet oranı ve varsayılan kredi / tasarruf koşulları (müşteride değişebilir).
+  tailorCostLimit: 0.15,
+  tailorCredit: defaultCreditTerms(),
+  tailorSavings: defaultSavingsTerms(),
 });
 
 function read(key, fallback) {

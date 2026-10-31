@@ -5,6 +5,8 @@ import { moneyShort, percent, editable, dateShort } from './format.js';
 import { AppCtx, Icon, Logo } from './ui.js';
 import { HomeScreen, TemplatesScreen, OfferScreen, ConverterScreen, SettingsScreen, BaseRatePill } from './screens.js';
 import { PlanBuilderScreen } from './builder.js';
+import { TailorScreen } from './tailorui.js';
+import { suggest as tailorSuggest } from './tailor.js';
 import { LoginScreen, Splash } from './account.js';
 import { RateSheet, AmountSheet, NameSheet } from './sheets.js';
 import { PrintDoc } from './print.js';
@@ -378,6 +380,33 @@ function App() {
     inp.click();
   };
 
+  // --- Terzi usulü plan (kaydedilmez; ekrandan çıkılıp dönülünce kalır) ---
+  const [tailor, setTailor] = useState(null);
+  const [tailorResult, setTailorResult] = useState(null);
+  const [tailorBusy, setTailorBusy] = useState(false);
+  const newTailorInput = () => ({
+    loanType: 'HOUSING', listPrice: 0, discountPercent: 0, cashPower: 0, monthlyPower: 0, balloons: [], maxMonths: null,
+    allowCredit: settings.creditEnabled !== false, allowSavings: settings.savingsEnabled !== false,
+    costLimit: settings.tailorCostLimit, credit: { ...settings.tailorCredit }, savings: { ...settings.tailorSavings }, startDate: DateX.today(),
+  });
+  const openTailor = () => { if (!tailor || !(tailor.listPrice > 0)) setTailor(newTailorInput()); push('tailor'); };
+  const newTailor = () => { setTailor(newTailorInput()); setTailorResult(null); };
+  const updateTailor = (t) => { setTailor(t); setTailorResult(null); };
+  const suggestTailor = () => {
+    const input = tailor;
+    setTailorBusy(true);
+    // Önce "deneniyor" yazısı görünsün; arama birkaç yüz aday dener.
+    setTimeout(() => {
+      try { setTailorResult(tailorSuggest(input, settings.baseRate, settings.taxes)); } finally { setTailorBusy(false); }
+    }, 30);
+  };
+  /** Seçilen öneri kaydedilmemiş plan olarak plan adımında açılır. */
+  const openTailored = (o) => {
+    loadPlan({ ...o.plan, id: 0, name: '' }, true);
+    setPlanStepState(PLAN_STEP);
+    push('plan');
+  };
+
   // --- PDF (yazdır) ---
   const print = (doc) => { setPrintDoc(doc); track('pdf', doc.kind === 'plan' ? planSummary(doc.plan) : { kind: doc.kind }); };
   useEffect(() => {
@@ -392,6 +421,7 @@ function App() {
     settings, updateSettings, records, go, back, screen, plan, dirty, planStep, setPlanStep, newPlan, resetPlan, updateInput, savePlan, autoName,
     analyzePlan, planOps, templateCost, useTemplate, renameTemplate, deleteRecord, restoreRecord, purgeRecord, emptyTrash,
     offer, newOffer, updateOffer, conversion, newConversion, updateConversion, openRecord, sheet, closeSheet, editBaseRate,
+    tailor, tailorResult, tailorBusy, openTailor, newTailor, updateTailor, suggestTailor, openTailored,
     exportBackup, importBackup, print, shareFields, setShareFields, cloud, session, sessionError, logout,
   };
 
@@ -399,6 +429,7 @@ function App() {
     home: HomeScreen, templates: TemplatesScreen, settings: SettingsScreen,
     plan: plan ? PlanBuilderScreen : HomeScreen,
     offer: offer ? OfferScreen : HomeScreen, converter: conversion ? ConverterScreen : HomeScreen,
+    tailor: tailor ? TailorScreen : HomeScreen,
   }[screen] || HomeScreen;
   const tab = stack.includes('templates') ? 'templates' : screen === 'settings' ? 'settings' : 'home';
 
@@ -436,6 +467,7 @@ function Sidebar({ tab, screen }) {
       <${Item} icon="table" label="Ödeme planı" active=${screen === 'plan'} onClick=${app.newPlan} />
       <${Item} icon="trend" label="Teklifin gerçek oranı" active=${screen === 'offer'} onClick=${app.newOffer} />
       <${Item} icon="clock" label="Değer çevirici" active=${screen === 'converter'} onClick=${app.newConversion} />
+      <${Item} icon="sliders" label="Terzi usulü plan" active=${screen === 'tailor'} onClick=${app.openTailor} />
       <div class="grow" />
       <div class="sb-rate"><${BaseRatePill} /></div>
       <${Item} icon="settings" label="Ayarlar" active=${screen === 'settings'} onClick=${() => app.go('settings')} />

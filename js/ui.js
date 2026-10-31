@@ -40,6 +40,7 @@ const P = {
   up: 'M6 15l6-6 6 6',
   down: 'M6 9l6 6 6-6',
   moon: 'M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z',
+  sliders: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M16 4v4M10 10v4M18 16v4',
 };
 
 export const Icon = ({ name, size = 20, stroke = 2, cls = '' }) => html`

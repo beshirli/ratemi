@@ -11,6 +11,7 @@ import {
 } from './sheets.js';
 import { TRASH_DAYS } from './store.js';
 import { AccountSection } from './account.js';
+import { TailorSettings } from './tailorui.js';
 
 const KIND = {
   SCHEDULE: { label: 'Planlar', icon: 'table', tone: 'blue', color: 'var(--tint)' },
@@ -69,6 +70,11 @@ export function HomeScreen() {
             <button class="tool grad-offer" onClick=${app.newOffer}><span class="icon-tile on-grad"><${Icon} name="trend" /></span><span class="tool-title">Teklifin gerçek oranı</span><span class="tool-cap">IRR analizörü</span></button>
             <button class="tool grad-conv" onClick=${app.newConversion}><span class="icon-tile on-grad"><${Icon} name="clock" /></span><span class="tool-title">Değer çevirici</span><span class="tool-cap">Bugün ↔ gelecek</span></button>
           </div>
+          <button class="tool-wide grad-tailor" onClick=${app.openTailor}>
+            <span class="icon-tile on-grad"><${Icon} name="sliders" /></span>
+            <span class="grow"><span class="tool-title">Terzi usulü plan</span><span class="tool-cap">Müşterinin gücüne göre en uygun üç plan</span></span>
+            <${Icon} name="forward" size=${20} />
+          </button>
         </div>
         <div class="list-head"><span class="section-label">Kayıtlarım · ${shown.length}</span><span class="caption">Planlar “Kaydet” ile saklanır</span></div>
         <div class="filters">
@@ -317,6 +323,7 @@ export function SettingsScreen() {
           <${SwitchRow} title="Tahsisat (tasarruf finansmanı)" caption=${s.savingsEnabled !== false ? 'Ödeme planında Tahsisat adımı ve sihirbazı var' : 'Tahsisat adımı gizli; tahsisat girilmiş planlarda görünmeye devam eder'}
             checked=${s.savingsEnabled !== false} onChange=${(v) => app.updateSettings({ ...s, savingsEnabled: v })} />
         </${SectionCard}>
+        <${TailorSettings} />
         <${SectionCard} title="Yeni planda peşin iskonto">
           <${SwitchRow} title="Varsayılan olarak açık" checked=${s.discountOn} onChange=${(v) => app.updateSettings({ ...s, discountOn: v })} />
           ${s.discountOn && html`<${FieldBox} label="Varsayılan oran"><span class="unit">%</span><${NumberField} value=${s.discountPercent} onChange=${(v) => v != null && app.updateSettings({ ...s, discountPercent: v })} /></${FieldBox}>`}

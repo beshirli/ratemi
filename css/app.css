@@ -12,6 +12,7 @@
   --g-logo: linear-gradient(120deg, #3456DE, #22BFD0);
   --g-offer: linear-gradient(120deg, #12873C, #3CC795);
   --g-conv: linear-gradient(120deg, #5048CF, #A77BEA);
+  --g-tailor: linear-gradient(120deg, #D9475A, #F2994A);
   --r: 18px; --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --bb-h: 68px; --safe-b: env(safe-area-inset-bottom, 0px);
   color-scheme: light;
@@ -532,3 +533,38 @@ body.modal-open { overflow: hidden; }
 .event { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--sep); }
 .ev-time { font-size: 12px; color: var(--label2); width: 92px; flex: none; }
 .event .row-title { font-size: 14px; }
+
+/* Terzi usulü plan */
+.grad-tailor { background: var(--g-tailor); color: #fff; }
+.btn-grad.grad-tailor { box-shadow: 0 6px 16px rgba(217, 71, 90, .25); }
+.big-amount.tone-red { border-bottom-color: var(--red); }
+.tool-wide { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px; padding: 14px; border-radius: var(--r); text-align: left; }
+.tool-wide .grow { display: flex; flex-direction: column; gap: 2px; }
+.tl-row { display: flex; align-items: center; gap: 10px; }
+.tl-inline { display: flex; align-items: center; gap: 6px; }
+.tl-w120 { width: 120px; flex: none; } .tl-w110 { width: 110px; flex: none; }
+.tl-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tl-three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tl-sub { margin-top: 6px; font-size: 14px; }
+.tl-power { padding: 10px 14px; border-radius: 14px; background: var(--canvas); }
+.tl-power .number-input, .tl-power input { font-size: 22px; font-weight: 700; }
+.tl-balloon { display: flex; align-items: flex-start; gap: 8px; }
+.tl-terms { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 14px; border: 1px solid; }
+.tl-terms.tone-blue { background: var(--tint-soft); border-color: color-mix(in srgb, var(--tint) 25%, transparent); }
+.tl-terms.tone-teal { background: var(--teal-soft); border-color: color-mix(in srgb, var(--teal) 25%, transparent); }
+.tl-term .caption { margin-bottom: 4px; font-size: 11px; }
+.tl-results { display: flex; flex-direction: column; gap: 12px; }
+.tl-count { padding-left: 4px; font-weight: 600; }
+.tl-red { color: var(--red) !important; }
+.tl-none p { margin: 4px 0; color: var(--label); font-size: 13px; }
+.tl-option { --c: var(--tint); --s: var(--tint-soft); display: flex; flex-direction: column; gap: 10px; width: 100%; text-align: left; border: 1.5px solid color-mix(in srgb, var(--c) 45%, transparent); }
+.tl-option.tone-teal { --c: var(--teal); --s: var(--teal-soft); } .tl-option.tone-green { --c: var(--green); --s: var(--green-soft); } .tl-option.tone-amber { --c: var(--amber); --s: var(--amber-soft); }
+.tl-title { font-size: 16px; font-weight: 700; color: var(--c); }
+.tl-right { text-align: right; }
+.tl-cost { font-size: 20px; font-weight: 700; color: var(--label); }
+.tl-band { display: grid; grid-template-columns: 1.3fr 1fr; gap: 8px; padding: 12px; border-radius: 14px; background: var(--s); }
+.tl-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tl-band small, .tl-facts small { display: block; font-size: 11px; color: var(--label2); }
+.tl-band strong, .tl-facts strong { font-size: 14px; color: var(--label); }
+.tl-open { display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: var(--c); font-size: 14px; }
+@media (min-width: 1180px) { .tl-results { position: sticky; top: 84px; } }
