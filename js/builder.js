@@ -3,7 +3,7 @@
 // Masaüstünde (WIDE ve üstü) tek sayfa: solda dört girdi bölümü alt alta, sağda anında oluşan plan.
 // Her değişiklik planı anında yeniden hesaplar; kayıt isteğe bağlı ("Kaydet"), şablon ayrı düğmeyle.
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash, noTerm, creditAmount, SavingsFinance } from './finance.js';
+import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash, noTerm, creditAmount, SavingsFinance, savingsAmount } from './finance.js';
 import { money, moneyShort, percent, dateMid, dayShift, editable } from './format.js';
 import {
   Icon, IconButton, GradientButton, OutlineButton, TextAction, Chip, Segmented, SwitchRow, Badge,
@@ -117,6 +117,12 @@ export function PlanBuilderScreen() {
           <div class="step-footer">
             ${ready && (a.schedule.overflow
               ? html`<div class="alert small">Peşinat ve ara ödemelerin bugünkü değeri hedefi ${moneyShort(a.schedule.overflow.excess)} aşıyor.</div>`
+              : step === 3 && a.savings ? html`<div class="step-summary two">
+                  <span class="w"><small>Tahsisat</small><strong>${a.savings.allocationMonth}. ay · ${dateMid(DateX.plusMonths(input.startDate, a.savings.allocationMonth))}</strong></span>
+                  <span><small>Tahsisat maliyeti</small><strong>${percent(a.savings.amount > 0 ? a.allocationCost / a.savings.amount : 0)}</strong></span>
+                  <span><small>Plan maliyeti</small><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong></span>
+                  <span class="w"><small>Müşteri taksiti</small><strong>${moneyShort(a.savings.firstPayment)} × ${a.savings.months} ay${a.savings.growth > 0 ? ' ↑' : ''}</strong></span>
+                </div>`
               : cash ? html`<div class="step-summary">
                   <span><small>Peşin satış</small><strong>${moneyShort(basePrice(input))}</strong></span>
                   <span><small>Maliyet</small><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong></span>
@@ -345,6 +351,12 @@ function SavingsStep({ input, set, no }) {
     <div class="b-ctl">${label && html`<span class="field-label">${label}</span>`}
       <div class="b-stepper"><${IconButton} icon="minus" label="Azalt" cls="filled" onClick=${minus} /><span class="grace-val">${value}</span><${IconButton} icon="add" label="Artır" cls="filled" onClick=${plus} /></div>
       ${caption && html`<div class="caption center">${caption}</div>`}</div>`;
+  // Renkli bölüm kartı: simge, başlık, kısa açıklama; altında içerik.
+  const block = (tone, icon, title, caption, body) => html`
+    <div class=${'sv-block tone-' + tone}>
+      <div class="sv-head"><span class="sv-icon"><${Icon} name=${icon} size=${18} /></span><span><strong>${title}</strong><small>${caption}</small></span></div>
+      ${body}
+    </div>`;
   const downV = s && (typeof s.down === 'number' ? { amount: s.down, percent: false } : s.down);
   const model = (title, sv, on) => {
     const pl = SavingsFinance.plan({ ...input, savings: sv });
@@ -357,60 +369,64 @@ function SavingsStep({ input, set, no }) {
     </button>`;
   };
   const g = s && s.growth > 0 ? s.growth : 0.01;
+  // Tutar silinip yeniden yazılırken (0) de alanlar yerinde kalır; sonuçlar tutar girilince çıkar.
+  const amount = plan ? plan.amount : savingsAmount(input);
   const cost = plan ? plan.amount - pv(plan) : 0;
   return html`
     <div class="card b-sec">
       <div class="b-head">${no}Tahsisat (tasarruf finansmanı)</div>
       <${SwitchRow} title="Tahsisat kullan" caption="Tasarruf şirketi tahsisat ayında sözleşme tutarının tamamını firmaya tek seferde öder." checked=${!!s}
         onChange=${(on) => set({ savings: on ? { amount: { amount: Math.round(rest), percent: false }, down: { amount: 0, percent: true }, months: housing ? 120 : 60, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } : null })} />
-      ${s && plan && html`
+      ${s && html`
         <div class="alloc-result grad-logo">
           <small>Tahsisat</small>
-          <strong class="big">${plan.allocationMonth}. ay · ${dateOf(plan.allocationMonth)}</strong>
-          <small>${plan.manual ? `Elle belirlendi (kurala göre ${plan.computedMonth}. ay)` : "Birikim %45 ve vadenin %45'i kuralıyla"}</small>
-          <div class="ar-grid">
-            <span><small>Gelecek tutar</small><strong>${moneyShort(plan.amount)}</strong></span>
-            <span><small>Bugünkü değeri</small><strong>${moneyShort(pv(plan))}</strong></span>
-            <span><small>Tahsisat maliyeti</small><strong>${moneyShort(cost)}<br />${percent(plan.amount > 0 ? cost / plan.amount : 0)} (tutarın)</strong></span>
-            <span><small>Maliyet oranına katkı</small><strong>${percent(input.listPrice > 0 ? cost / input.listPrice : 0)}</strong></span>
+          ${plan ? html`
+            <strong class="big">${plan.allocationMonth}. ay · ${dateOf(plan.allocationMonth)}</strong>
+            <small>${plan.manual ? `Elle belirlendi (kurala göre ${plan.computedMonth}. ay)` : "Birikim %45 ve vadenin %45'i kuralıyla"}</small>
+            <div class="ar-grid">
+              <span><small>Gelecek tutar</small><strong>${moneyShort(plan.amount)}</strong></span>
+              <span><small>Bugünkü değeri</small><strong>${moneyShort(pv(plan))}</strong></span>
+              <span><small>Tahsisat maliyeti</small><strong>${moneyShort(cost)}<br />${percent(plan.amount > 0 ? cost / plan.amount : 0)} (tutarın)</strong></span>
+              <span><small>Maliyet oranına katkı</small><strong>${percent(input.listPrice > 0 ? cost / input.listPrice : 0)}</strong></span>
+            </div>
+            <small>Baz oran ${percent(app.settings.baseRate)} / ay ile; firma taksitlerine yedirilmez.</small>`
+          : html`<strong class="big">Sözleşme tutarını gir</strong><small>Tahsisat ayı, tutarı ve maliyeti burada hesaplanır.</small>`}
+        </div>
+        ${block('teal', 'bank', 'Sözleşme tutarı', 'tahsisatta firmaya gelen · kampanyalı fiyatın', html`
+          <${AmountPercentFields} value=${s.amount} base=${base} onChange=${(v) => up({ amount: v })} />
+          <${OutlineButton} cls="full" icon="check" color="var(--teal)" onClick=${() => up({ amount: { amount: Math.round(rest), percent: false } })}>Kalanın tamamı (${moneyShort(rest)})</${OutlineButton}>`)}
+        ${block('navy', 'download', 'Şirkete peşinat', 'müşterinin tasarruf şirketine · sözleşme tutarının', html`
+          <${AmountPercentFields} value=${downV} base=${amount} onChange=${(v) => up({ down: v })} />
+          <div class="chips-wrap">${[0, 10, 20, 30, 40].map((x) => html`<${Chip} label=${x === 0 ? 'Peşinatsız' : '%' + x} color="var(--wordmark)" selected=${!!plan && Math.abs(plan.down - plan.amount * x / 100) < 1} onClick=${() => up({ down: { amount: x, percent: true } })} />`)}</div>`)}
+        ${block('blue', 'calendar', 'Sözleşme vadesi', `azami ${housing ? 120 : 60} ay (BDDK)`, html`
+          ${stepper(null, `${s.months} ay`, yearsText(s.months) || ' ', () => up({ months: Math.max(2, s.months - 1), allocationMonth: null }), () => up({ months: Math.min(240, s.months + 1), allocationMonth: null }))}
+          <div class="chips-wrap">${(housing ? [36, 48, 60, 84, 96, 120] : [24, 36, 48, 60]).map((m) => html`<${Chip} label=${`${m} ay`} selected=${s.months === m} onClick=${() => up({ months: m, allocationMonth: null })} />`)}</div>`)}
+        ${block('indigo', 'trend', 'Taksit modeli', 'sabit mi artan mı · dokunarak seç', html`
+          <div class="model-cards">${model('Sabit taksit', { ...s, growth: 0 }, !(s.growth > 0))}${model(`Artan (${percent(g, 1)}/ay)`, { ...s, growth: g }, s.growth > 0)}</div>
+          ${s.growth > 0 && html`
+            ${stepper('Tahsisattan sonra aylık artış', percent(s.growth), 'kira destekli / endeksli model', () => up({ growth: Math.max(0.001, r6(s.growth - 0.001)) }), () => up({ growth: r6(s.growth + 0.001) }))}
+            <div class="chips-wrap">${[0.005, 0.01, 0.015, 0.02].map((x) => html`<${Chip} label=${percent(x, 1)} color="var(--indigo)" selected=${Math.abs(s.growth - x) < 1e-9} onClick=${() => up({ growth: x })} />`)}</div>`}`)}
+        ${block('amber', 'bag', 'Organizasyon ücreti', `${moneyShort(amount * s.feeRate)} · yarısı peşin, kalanı en fazla 4 taksit`, html`
+          ${stepper(null, percent(s.feeRate), 'sözleşme tutarının', () => up({ feeRate: Math.max(0, r6(s.feeRate - 0.0025)) }), () => up({ feeRate: r6(s.feeRate + 0.0025) }))}
+          <div class="chips-wrap">${[0.05, 0.06, 0.07, 0.08, 0.10, 0.12].map((x) => html`<${Chip} label=${percent(x, 0)} color="var(--amber)" selected=${Math.abs(s.feeRate - x) < 1e-9} onClick=${() => up({ feeRate: x })} />`)}</div>
+          <p class="caption">Kalan ücret 2. taksitten itibaren kaç taksitte?</p>
+          <${Segmented} options=${['1', '2', '3', '4']} index=${(s.feeInstallments || 4) - 1} onChange=${(i) => up({ feeInstallments: i + 1 })} />`)}
+        ${plan && block('green', 'clock', 'Tahsisat ayı', `kural: birikim ≥ %45 ve vadenin ≥ %45'i → ${plan.computedMonth}. ay`, html`
+          <${SwitchRow} title="Elle belirle" caption="Çekilişli modelde ya da şirketin verdiği tarih farklıysa" checked=${s.allocationMonth != null}
+            onChange=${(on) => up({ allocationMonth: on ? plan.computedMonth : null })} />
+          ${s.allocationMonth != null && stepper(null, `${plan.allocationMonth}. ay`, dateOf(plan.allocationMonth),
+            () => up({ allocationMonth: Math.max(1, plan.allocationMonth - 1) }), () => up({ allocationMonth: Math.min(plan.months, plan.allocationMonth + 1) }))}`)}
+        ${plan && block('teal', 'house', 'Müşterinin taksitleri', 'tasarruf şirketine ödenecek', html`
+          <div class="loan-sum">
+            <span><small>${plan.growth > 0 ? 'İlk / son taksit' : 'Aylık taksit'}</small><strong>${plan.growth > 0 ? `${moneyShort(plan.firstPayment)} / ${moneyShort(plan.rows[plan.rows.length - 1].saving)}` : money(plan.firstPayment)}</strong></span>
+            <span><small>Peşinat</small><strong>${moneyShort(plan.down)}</strong></span>
+            <span><small>Birikim (tahsisatta)</small><strong>${moneyShort(plan.savedAtAllocation)}</strong></span>
+            <span><small>Finansman</small><strong>${moneyShort(plan.financing)}</strong></span>
+            <span><small>Organizasyon ücreti</small><strong>${moneyShort(plan.fee)}</strong></span>
+            <span><small>Müşteri toplamı</small><strong>${moneyShort(plan.totalPaid)}</strong></span>
           </div>
-          <small>Baz oran ${percent(app.settings.baseRate)} / ay ile; firma taksitlerine yedirilmez.</small>
-        </div>
-        <span class="sub-label">Sözleşme tutarı (tahsisatta gelecek)</span>
-        <${AmountPercentFields} value=${s.amount} base=${base} onChange=${(v) => up({ amount: v })} />
-        <${OutlineButton} cls="full" icon="check" color="var(--teal)" onClick=${() => up({ amount: { amount: Math.round(rest), percent: false } })}>Kalanın tamamı (${moneyShort(rest)})</${OutlineButton}>
-        <span class="sub-label">Müşterinin tasarruf şirketine peşinatı · sözleşme tutarının</span>
-        <${AmountPercentFields} value=${downV} base=${plan.amount} onChange=${(v) => up({ down: v })} />
-        <div class="chips-wrap">${[0, 10, 20, 30, 40].map((x) => html`<${Chip} label=${x === 0 ? 'Peşinatsız' : '%' + x} color="var(--teal)" selected=${Math.abs(plan.down - plan.amount * x / 100) < 1} onClick=${() => up({ down: { amount: x, percent: true } })} />`)}</div>
-        <span class="sub-label">Sözleşme vadesi</span>
-        ${stepper(null, `${s.months} ay`, `${yearsText(s.months) || ''} · azami ${housing ? 120 : 60} ay`, () => up({ months: Math.max(2, s.months - 1), allocationMonth: null }), () => up({ months: Math.min(240, s.months + 1), allocationMonth: null }))}
-        <div class="chips-wrap">${(housing ? [36, 48, 60, 84, 96, 120] : [24, 36, 48, 60]).map((m) => html`<${Chip} label=${`${m} ay`} color="var(--teal)" selected=${s.months === m} onClick=${() => up({ months: m, allocationMonth: null })} />`)}</div>
-        <span class="sub-label">Taksit modeli · dokunarak seç</span>
-        <div class="model-cards">${model('Sabit taksit', { ...s, growth: 0 }, !(s.growth > 0))}${model(`Artan (${percent(g, 1)}/ay)`, { ...s, growth: g }, s.growth > 0)}</div>
-        ${s.growth > 0 && html`
-          ${stepper('Tahsisattan sonra aylık artış', percent(s.growth), 'kira destekli / endeksli model', () => up({ growth: Math.max(0.001, r6(s.growth - 0.001)) }), () => up({ growth: r6(s.growth + 0.001) }))}
-          <div class="chips-wrap">${[0.005, 0.01, 0.015, 0.02].map((x) => html`<${Chip} label=${percent(x, 1)} color="var(--teal)" selected=${Math.abs(s.growth - x) < 1e-9} onClick=${() => up({ growth: x })} />`)}</div>`}
-        <span class="sub-label">Organizasyon ücreti · ${moneyShort(plan.fee)}</span>
-        ${stepper(null, percent(s.feeRate), 'sözleşme tutarının; yarısı peşin', () => up({ feeRate: Math.max(0, r6(s.feeRate - 0.0025)) }), () => up({ feeRate: r6(s.feeRate + 0.0025) }))}
-        <div class="chips-wrap">${[0.05, 0.06, 0.07, 0.08, 0.10, 0.12].map((x) => html`<${Chip} label=${percent(x, 0)} color="var(--teal)" selected=${Math.abs(s.feeRate - x) < 1e-9} onClick=${() => up({ feeRate: x })} />`)}</div>
-        <p class="caption">Kalan ücret 2. taksitten itibaren kaç taksitte (en fazla 4)?</p>
-        <${Segmented} options=${['1', '2', '3', '4']} index=${(s.feeInstallments || 4) - 1} onChange=${(i) => up({ feeInstallments: i + 1 })} />
-        <span class="sub-label">Tahsisat ayı</span>
-        <${SwitchRow} title="Elle belirle" caption=${`Kural: birikim ≥ %45 ve vadenin ≥ %45'i (peşinat oranı kadar öne çekilir) → ${plan.computedMonth}. ay`} checked=${s.allocationMonth != null}
-          onChange=${(on) => up({ allocationMonth: on ? plan.computedMonth : null })} />
-        ${s.allocationMonth != null && stepper(null, `${plan.allocationMonth}. ay`, dateOf(plan.allocationMonth),
-          () => up({ allocationMonth: Math.max(1, plan.allocationMonth - 1) }), () => up({ allocationMonth: Math.min(plan.months, plan.allocationMonth + 1) }))}
-        <span class="sub-label">Müşterinin taksitleri (tasarruf şirketine)</span>
-        <div class="loan-sum">
-          <span><small>${plan.growth > 0 ? 'İlk / son taksit' : 'Aylık taksit'}</small><strong>${plan.growth > 0 ? `${moneyShort(plan.firstPayment)} / ${moneyShort(plan.rows[plan.rows.length - 1].saving)}` : money(plan.firstPayment)}</strong></span>
-          <span><small>Peşinat</small><strong>${moneyShort(plan.down)}</strong></span>
-          <span><small>Birikim (tahsisatta)</small><strong>${moneyShort(plan.savedAtAllocation)}</strong></span>
-          <span><small>Finansman</small><strong>${moneyShort(plan.financing)}</strong></span>
-          <span><small>Organizasyon ücreti</small><strong>${moneyShort(plan.fee)}</strong></span>
-          <span><small>Müşteri toplamı</small><strong>${moneyShort(plan.totalPaid)}</strong></span>
-        </div>
-        ${plan.warnings.length ? plan.warnings.map((w) => html`<p class="caption amber">⚠ ${w}</p>`) : html`<p class="caption teal">BDDK sınırları içinde.</p>`}
-        <${OutlineButton} cls="full" icon="table" color="var(--teal)" onClick=${() => app.sheet(html`<${SavingsSheet} plan=${plan} start=${input.startDate} onClose=${app.closeSheet} />`)}>Tasarruf ödeme planı</${OutlineButton}>
+          ${plan.warnings.length ? plan.warnings.map((w) => html`<p class="caption amber">⚠ ${w}</p>`) : html`<p class="caption teal">BDDK sınırları içinde.</p>`}
+          <${OutlineButton} cls="full" icon="table" color="var(--teal)" onClick=${() => app.sheet(html`<${SavingsSheet} plan=${plan} start=${input.startDate} onClose=${app.closeSheet} />`)}>Tasarruf ödeme planı</${OutlineButton}>`)}
         ${noTerm(input) && html`<p class="caption teal">Kalan tutar karşılanıyor: firma vadesi yok.</p>`}`}
     </div>`;
 }
