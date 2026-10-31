@@ -598,22 +598,35 @@ body.modal-open { overflow: hidden; }
   .pt-row:has(.c-cum), .pt-total:has(.c-cum) { grid-template-areas: "no date amt pv lock" "no date cum pvc lock"; }
 }
 
-/* Masaüstü aç-kapa bölümler: beyaz kart, gri numara, başlıkta özet ve maliyet. */
-.acc { padding: 0; overflow: hidden; }
-.acc-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 16px; text-align: left; }
-.acc.open .acc-head { border-bottom: 1px solid var(--sep); background: linear-gradient(90deg, color-mix(in srgb, var(--tint) 6%, transparent), transparent 60%); }
-.acc .b-no { background: var(--fill); color: var(--label2); }
-.acc.open .b-no { background: var(--g-logo, var(--tint)); color: #fff; }
-.acc-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.acc-title strong { font-size: 15px; }
-.acc-title small { font-size: 12px; color: var(--label2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.acc-cost { font-size: 11.5px; color: var(--label3); white-space: nowrap; }
-.acc-chev { color: var(--label3); display: grid; place-items: center; }
-.acc-body { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
-.acc-body .card.b-sec { box-shadow: none; border: 0; background: transparent; padding: 0; }
+/* Masaüstü aç-kapa bölümler: degrade başlık (lacivert → mavi → turkuaz), açık bölümde açık degrade zemin; içerik
+   kadar uzar (sütun kendi kaydırmasıyla), sıkışmaz. */
+.builder-wide .b-inputs > * { flex-shrink: 0; }
+.acc { --g-acc: linear-gradient(120deg, #1C2B6E, #2F5FE0 55%, #22BFD0); padding: 0; overflow: hidden; border: 0; }
+.acc-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; text-align: left; background: var(--g-acc); color: #fff; }
+.acc:not(.open) .acc-head { opacity: .92; }
+.acc .b-no { background: rgba(255, 255, 255, .22); color: #fff; }
+.acc.open .b-no { background: #fff; color: #2F5FE0; }
+.acc-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.acc-title strong { font-size: 14.5px; line-height: 1.25; }
+.acc-title small { font-size: 12px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc-cost { font-size: 11.5px; opacity: .85; white-space: nowrap; }
+.acc-chev { display: grid; place-items: center; opacity: .9; }
+.acc-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; font-size: 13px;
+  background: linear-gradient(180deg, color-mix(in srgb, #2F5FE0 7%, var(--card)), color-mix(in srgb, #22BFD0 7%, var(--card))); }
+.acc-body .card.b-sec { box-shadow: none; border: 0; background: transparent; padding: 0; overflow: visible; }
 .acc-body .b-sec > .b-head:not(.sub) { display: none; }
+.acc-body .b-head.sub { font-size: 13.5px; }
 .acc-body .sec-toggle { display: none; }
-.acc-next { align-self: flex-end; display: flex; align-items: center; gap: 4px; font-weight: 700; font-size: 13px; color: var(--tint); padding: 6px 4px; }
+/* Açık bölümün içi: yazılar küçük, ± değerleri büyük kalır. */
+.acc-body .row-title { font-size: 13.5px; }
+.acc-body .caption { font-size: 11.5px; }
+.acc-body .field-label { font-size: 11px; }
+.acc-body .chip { height: 30px; font-size: 12px; padding: 0 10px; }
+.acc-body .ap-fields .num-input, .acc-body .ap-fields input { font-size: 17px; }
+.acc-body .price-box .num-input.price { font-size: 22px; } .acc-body .price-box .unit { font-size: 18px; }
+.acc-body .btn-outline, .acc-body .btn-grad { font-size: 13px; }
+.acc-body .sv-head strong { font-size: 13.5px; } .acc-body .sv-head small { font-size: 11px; }
+.acc-body .alloc-result .big { font-size: 20px; }
 /* Telefonda adımın üstünde bölüm maliyeti. */
 .sec-cost { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px; background: var(--fill); font-size: 12.5px; color: var(--label2); }
 .sec-cost strong { font-size: 14px; color: var(--label); } .sec-cost em { font-style: normal; font-size: 11px; color: var(--label3); }
@@ -634,3 +647,4 @@ body.modal-open { overflow: hidden; }
 .c-cum, .c-cum.full, .c-pvc, .pt-total .c-pvc { font-size: 10.5px; font-weight: 400; color: var(--label3); }
 .acc-cost, .acc-switch, .acc-chev { flex: none; }
 .acc-switch { margin-left: 4px; }
+.acc-body .field-box, .acc-body .sv-block, .acc-body .b-stepper, .acc-body .stepper, .acc-body .loan-sum { background: var(--card); }

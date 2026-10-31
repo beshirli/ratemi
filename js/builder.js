@@ -98,7 +98,7 @@ export function PlanBuilderScreen() {
         <div class="content builder-wide">
           <section class="b-inputs">
             ${visible.filter((i) => i < PLAN).map((i, pos, list) => html`<${Accordion} key=${i} i=${i} pos=${pos} a=${a} input=${input} set=${set}
-              open=${openSec === i} onOpen=${() => setOpenSec(openSec === i ? -1 : i)} next=${list[pos + 1]} onNext=${() => setOpenSec(list[pos + 1] ?? -1)} />`)}
+              open=${openSec === i} onOpen=${() => setOpenSec(openSec === i ? -1 : i)} />`)}
           </section>
           <section class="b-result">${result}</section>
         </div>
@@ -160,9 +160,9 @@ const pctOf = (v, base) => (base > 0 ? '%' + editable(Math.round(v / base * 1000
 
 /**
  * Aç-kapa bölüm (masaüstü): başlıkta numara, ad, özet (oran · tutar), bölümün maliyeti; kredi ve tahsisatta anahtar.
- * Başlığa dokun → aç / kapa; "Sonraki" bir sonraki bölümü açar. Anahtar açılınca bölüm açılır, kapanınca kaldırılır.
+ * Başlığa dokun → aç / kapa. Anahtar açılınca bölüm açılır, kapanınca kaldırılır.
  */
-function Accordion({ i, pos, a, input, set, open, onOpen, next, onNext }) {
+function Accordion({ i, pos, a, input, set, open, onOpen }) {
   const base = basePrice(input);
   const ready = input.listPrice > 0;
   const b = ready && !a.schedule.overflow ? costBreakdown(a) : null;
@@ -193,7 +193,6 @@ function Accordion({ i, pos, a, input, set, open, onOpen, next, onNext }) {
       ${open && html`
         <div class="acc-body">
           <${InputsPanel} input=${input} set=${set} step=${i} />
-          ${next != null && next < PLAN && html`<button class="acc-next" onClick=${onNext}>Sonraki: ${SEC_TITLES[next]} <${Icon} name="forward" size=${16} /></button>`}
         </div>`}
     </div>`;
 }
