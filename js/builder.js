@@ -444,6 +444,7 @@ function ResultPanel({ plan, a }) {
   // Kredi ya da tahsisat varsa iki plan: Firma (tahsilat, düzenlenebilir) · Müşteri (konsolide ödemeler).
   const [customer, setCustomer] = useState(false);
   if (isCash(plan.input)) return html`<${CashPanel} plan=${plan} a=${a} />`;
+  const totalPv = rows.reduce((t, r) => t + a.pv(r), 0);
   const dual = !!(a.loan || a.savings);
   const viewSwitch = dual && html`
     <div class="view-switch">
@@ -476,8 +477,8 @@ function ResultPanel({ plan, a }) {
     <div class="ptable">
       <div class="pt-head"><span class="c-no">Sıra</span><span class="c-date">Tarih</span><span class="c-amt">Tutar</span><span class="c-cum">Tahsilat</span><span class="c-pv">NBD</span><span class="c-pvc">NBD Σ</span><span class="c-lock" /></div>
       ${rows.map((p, i) => html`<${TableRow} key=${p.id} p=${p} start=${start} pv=${a.pv(p)} collected=${a.listPrice > 0 ? rows.slice(0, i + 1).reduce((t, r) => t + r.amount, 0) / a.listPrice : null}
-        collectedPv=${a.listPrice > 0 ? rows.slice(0, i + 1).reduce((t, r) => t + a.pv(r), 0) / a.listPrice : null} onClick=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && editRow(p)} onLock=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && ops.toggleLock(p.id)} />`)}
-      <div class="pt-total"><span class="c-no">Toplam</span><span class="c-date" /><span class="c-amt">${money(a.total)}</span>${a.listPrice > 0 && html`<span class="c-cum full">Σ ${percent(a.total / a.listPrice, 1)}<em> tahsil</em></span>`}<span class="c-pv">${moneyShort(a.pvAtBase)}</span>${a.listPrice > 0 && html`<span class="c-pvc">Σ ${percent(a.pvAtBase / a.listPrice, 1)}</span>`}<span class="c-lock" /></div>
+        collectedPv=${totalPv > 0 ? rows.slice(0, i + 1).reduce((t, r) => t + a.pv(r), 0) / totalPv : null} onClick=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && editRow(p)} onLock=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && ops.toggleLock(p.id)} />`)}
+      <div class="pt-total"><span class="c-no">Toplam</span><span class="c-date" /><span class="c-amt">${money(a.total)}</span>${a.listPrice > 0 && html`<span class="c-cum full">Σ ${percent(a.total / a.listPrice, 1)}<em> tahsil</em></span>`}<span class="c-pv">${moneyShort(a.pvAtBase)}</span>${totalPv > 0 && html`<span class="c-pvc">Σ ${percent(1, 1)}</span>`}<span class="c-lock" /></div>
     </div>
     ${loanSavingsCards(app, a, start)}`;
 }
