@@ -1,5 +1,5 @@
 // Çevrimdışı çalışma: uygulama dosyaları önbellekte; yeni sürüm yayınlanınca VERSION artırılır.
-const VERSION = 'ratemi-v17';
+const VERSION = 'ratemi-v18';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css', 'css/print.css',
   'js/main.js', 'js/ui.js', 'js/screens.js', 'js/builder.js', 'js/sheets.js', 'js/print.js', 'js/finance.js', 'js/format.js', 'js/store.js', 'js/account.js', 'js/cloud.js',

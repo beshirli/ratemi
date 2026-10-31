@@ -120,8 +120,8 @@ export function PlanBuilderScreen() {
               : step === 3 && a.savings ? html`<div class="step-summary two">
                   <span class="w"><small>Tahsisat</small><strong>${a.savings.allocationMonth}. ay · ${dateMid(DateX.plusMonths(input.startDate, a.savings.allocationMonth))}</strong></span>
                   <span><small>Tahsisat maliyeti</small><strong>${percent(a.savings.amount > 0 ? a.allocationCost / a.savings.amount : 0)}</strong></span>
-                  <span><small>Plan maliyeti</small><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong></span>
                   <span class="w"><small>Müşteri taksiti</small><strong>${moneyShort(a.savings.firstPayment)} × ${a.savings.months} ay${a.savings.growth > 0 ? ' ↑' : ''}</strong></span>
+                  <span><small>Plan maliyeti</small><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong></span>
                 </div>`
               : cash ? html`<div class="step-summary">
                   <span><small>Peşin satış</small><strong>${moneyShort(basePrice(input))}</strong></span>
