@@ -183,7 +183,7 @@ function App() {
       loanType: 'HOUSING', taxOn: false, listPrice: 0,
       discountOn: settings.discountOn, discount: { amount: settings.discountOn ? settings.discountPercent : 0, percent: true },
       down: { amount: 0, percent: true }, interims: [], skipOnInterim: false,
-      months: 24, rate: 0.02, startDate: DateX.today(), graceMonths: 0,
+      months: 24, rate: settings.baseRate, startDate: DateX.today(), graceMonths: 0,
     },
   });
 
