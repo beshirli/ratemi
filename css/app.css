@@ -749,3 +749,11 @@ body.modal-open { overflow: hidden; }
 .ct-total { background: var(--fill); padding-top: 12px; padding-bottom: 12px; }
 .ct-total .cv.sum { color: var(--tint); font-weight: 700; }
 @media (max-width: 480px) { .ct-row { grid-template-columns: 82px repeat(var(--cols), minmax(0, 1fr)); gap: 4px; padding: 9px 12px; } .cv { font-size: 12px; } }
+
+/* Adım sekmeleri: numara yerine bölüm simgesi; seçili sekme gece mavisi. */
+.st-tab.on { background: linear-gradient(135deg, #0E1640, #1C2B6E); color: #fff; }
+.st-tab.on .st-no { background: #fff; color: #1C2B6E; }
+.st-tab.done .st-no { background: var(--tint-soft); color: var(--tint); }
+
+/* Son bölüm de açılınca en üste kayabilsin diye sütunun altında boşluk. */
+.builder-wide .b-inputs::after { content: ''; flex: none; height: 60vh; }

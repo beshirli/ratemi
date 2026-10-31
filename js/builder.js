@@ -2,7 +2,7 @@
 // 4 Aylık vade farkı, 5 Plan; üstteki sekmelerle serbest geçiş, 1–4'te altta ince özet ve Geri / İleri.
 // Masaüstünde (WIDE ve üstü) tek sayfa: solda dört girdi bölümü alt alta, sağda anında oluşan plan.
 // Her değişiklik planı anında yeniden hesaplar; kayıt isteğe bağlı ("Kaydet"), şablon ayrı düğmeyle.
-import { html, useState, useEffect } from '../vendor/preact-htm.js';
+import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
 import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash, noTerm, creditAmount, SavingsFinance, savingsAmount, customerRows, customerStats, costBreakdown } from './finance.js';
 import { money, moneyShort, percent, dateMid, dayShift, editable } from './format.js';
 import {
@@ -20,6 +20,8 @@ const TYPES = [['HOUSING', 'Konut', false], ['VEHICLE', 'Taşıt', true], ['PERS
 const STEPS = ['Ürün', 'Peşinat', 'Banka kredisi', 'Tahsisat', 'Firma kredisi', 'Firma kredisi', 'Plan'];
 const STEPS_SHORT = ['Ürün', 'Peşinat', 'Banka', 'Tahsisat', 'Firma', 'Firma', 'Plan'];
 const PLAN = 6;
+// Adım sekmelerindeki simgeler (bölüm başlıklarıyla aynı); 6 = plan.
+const STEP_ICON = ['house', 'download', 'bank', 'savings', 'building', 'building', 'table'];
 const WIDE = '(min-width: 1100px)';
 
 /** Ekran masaüstü genişliğinde mi (pencere boyutu değişince güncellenir). */
@@ -114,7 +116,7 @@ export function PlanBuilderScreen() {
       <div class="step-tabs">
         ${visible.map((i, pos) => html`
           <button key=${i} class=${'st-tab' + (i === step ? ' on' : i < step ? ' done' : '')} disabled=${i > 0 && !ready} onClick=${() => i !== step && goStep(i)}>
-            <span class="st-no">${i < step ? html`<${Icon} name="check" size=${14} />` : pos + 1}</span><span class="st-name"><span class="st-long">${STEPS[i]}</span><span class="st-short">${STEPS_SHORT[i]}</span></span>
+            <span class="st-no"><${Icon} name=${STEP_ICON[i]} size=${15} /></span><span class="st-name"><span class="st-long">${STEPS[i]}</span><span class="st-short">${STEPS_SHORT[i]}</span></span>
           </button>`)}
       </div>
       <div class="content builder">
@@ -212,8 +214,21 @@ function SecHead({ i, pos, a, input, set, open, onOpen, chevron = true }) {
 
 /** Masaüstü aç-kapa bölüm: başlık + (açıksa) bölümün tonlu zemininde simgeli bloklar. */
 function Accordion({ i, pos, a, input, set, open, onOpen }) {
+  const ref = useRef(null);
+  // Açılınca başlık, girdi sütununun en üstünde görünsün (içerik altına doğru açılır).
+  useEffect(() => {
+    if (!open || !ref.current) return;
+    const col = ref.current.closest('.b-inputs');
+    // Önceki bölüm kapanıp yerleşim oturduktan sonra (sütun, bölümün konum kökü).
+    const t = setTimeout(() => {
+      if (!ref.current) return;
+      if (col) col.scrollTop = ref.current.offsetTop - 2;
+      else ref.current.scrollIntoView({ block: 'start' });
+    }, 30);
+    return () => clearTimeout(t);
+  }, [open]);
   return html`
-    <div class=${'acc tone-' + SEC_TONE[i] + (open ? ' open' : '')}>
+    <div ref=${ref} class=${'acc tone-' + SEC_TONE[i] + (open ? ' open' : '')}>
       <${SecHead} i=${i} pos=${pos} a=${a} input=${input} set=${set} open=${open} onOpen=${onOpen} />
       ${open && html`<div class="acc-body"><${InputsPanel} input=${input} set=${set} step=${i} /></div>`}
     </div>`;
