@@ -648,3 +648,10 @@ body.modal-open { overflow: hidden; }
 .acc-cost, .acc-switch, .acc-chev { flex: none; }
 .acc-switch { margin-left: 4px; }
 .acc-body .field-box, .acc-body .sv-block, .acc-body .b-stepper, .acc-body .stepper, .acc-body .loan-sum { background: var(--card); }
+
+/* Ürün: iskonto sonrası kampanyalı fiyat büyük. */
+.camp-price { display: flex; flex-direction: column; background: var(--fill); border-radius: 14px; padding: 10px 12px; }
+.camp-price small { font-size: 12px; color: var(--label2); } .camp-price strong { font-size: 26px; letter-spacing: -.01em; }
+.acc-body .camp-price { background: var(--card); } .acc-body .camp-price strong { font-size: 22px; }
+/* Başlık özeti uzunsa iki satıra iner. */
+.acc-title small { white-space: normal; line-height: 1.35; }

@@ -168,17 +168,20 @@ function Accordion({ i, pos, a, input, set, open, onOpen }) {
   const b = ready && !a.schedule.overflow ? costBreakdown(a) : null;
   const cost = b ? b[SEC_COST[i]] : 0;
   const down = valueOf(input.down, base);
+  const sv = a.savings, loan = a.loan;
   const summary = !ready ? (i === 0 ? 'Liste fiyatını gir' : '')
-    : i === 0 ? moneyShort(input.listPrice) + (input.discountOn ? ` · iskonto ${pctOf(input.listPrice - base, input.listPrice)}` : '')
-    : i === 1 ? `${pctOf(down, base)} · ${moneyShort(down)}` + (input.interims.length ? ` · ${input.interims.length} ara` : '')
-    : i === 2 ? (input.credit ? `${pctOf(creditAmount(input), base)} · ${moneyShort(creditAmount(input))}` : 'Kapalı')
-    : i === 3 ? (input.savings ? `${pctOf(savingsAmount(input), base)} · ${moneyShort(savingsAmount(input))}` : 'Kapalı')
-    : b ? `${pctOf(b.firmFinanced, base)} · ${moneyShort(b.firmFinanced)} · ${input.months} ay` : '';
+    : i === 0 ? (input.discountOn && input.listPrice - base > 0.5
+      ? `${moneyShort(input.listPrice)} · iskonto ${pctOf(input.listPrice - base, input.listPrice)} · kampanyalı ${moneyShort(base)}`
+      : moneyShort(input.listPrice))
+    : i === 1 ? `peşinat ${pctOf(down, base)} · ${moneyShort(down)}` + (input.interims.length ? ` · ${input.interims.length} ara ödeme` : ' · ara ödeme yok')
+    : i === 2 ? (loan ? `${moneyShort(loan.principal)} · ${loan.months} × ${moneyShort(loan.payment)} · ${percent(loan.rate)}` : 'Kapalı')
+    : i === 3 ? (sv ? `${moneyShort(sv.amount)} · ${sv.allocationMonth}. ay tahsisat · ${sv.months} × ${moneyShort(sv.firstPayment)}${sv.growth > 0 ? ' ↑' : ''}` : 'Kapalı')
+    : b ? `${pctOf(b.firmFinanced, base)} · ${moneyShort(b.firmFinanced)} · ${a.installmentCount} × ${a.installment != null ? moneyShort(a.installment) : '—'} · ${percent(input.rate)}` : '';
   const toggle = i === 2 || i === 3;
   const on = i === 2 ? !!input.credit : !!input.savings;
   const setOn = (v) => {
     if (i === 2) set({ credit: v ? { amount: { amount: 20, percent: true }, months: input.loanType === 'HOUSING' ? 120 : 36, rate: 0.0249, subsidized: false, bankRate: 0.0249 } : null });
-    else set({ savings: v ? { amount: { amount: 20, percent: true }, down: { amount: 0, percent: true }, months: input.loanType === 'HOUSING' ? 120 : 60, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } : null });
+    else set({ savings: v ? { amount: { amount: 20, percent: true }, down: { amount: 0, percent: true }, months: 53, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } : null });
     if (v !== open) onOpen();
   };
   return html`
@@ -256,7 +259,8 @@ function InputsPanel({ input, set, step, number }) {
         <span class="field-row"><span class="unit">₺</span><${NumberField} value=${input.listPrice > 0 ? input.listPrice : null} grouping placeholder="0" cls="price" inputMode="numeric" autoFocus=${!(input.listPrice > 0)} onChange=${(v) => set({ listPrice: v ?? 0 })} /></span>
       </label>
       <${SwitchRow} title="Peşin iskonto" caption=${discount > 0 ? `Kampanyalı fiyat ${moneyShort(base)} (−${moneyShort(discount)})` : 'Liste fiyatından düşülür'} checked=${input.discountOn} onChange=${(v) => set({ discountOn: v })} />
-      ${input.discountOn && html`<${AmountPercentFields} value=${input.discount} base=${input.listPrice} onChange=${(v) => set({ discount: v })} />`}
+      ${input.discountOn && html`<${AmountPercentFields} value=${input.discount} base=${input.listPrice} onChange=${(v) => set({ discount: v })} />
+        <div class="camp-price"><small>Kampanyalı fiyat</small><strong>${money(base)}</strong></div>`}
     </div>`,
 
     () => html`
@@ -460,25 +464,11 @@ function SavingsStep({ input, set, no }) {
     <div class="card b-sec">
       <div class="b-head">${no}Tahsisat (tasarruf finansmanı)</div>
       <div class="sec-toggle"><${SwitchRow} title="Tahsisat kullan" caption="Tasarruf şirketi tahsisat ayında sözleşme tutarının tamamını firmaya tek seferde öder." checked=${!!s}
-        onChange=${(on) => set({ savings: on ? { amount: { amount: 20, percent: true }, down: { amount: 0, percent: true }, months: housing ? 120 : 60, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } : null })} /></div>
+        onChange=${(on) => set({ savings: on ? { amount: { amount: 20, percent: true }, down: { amount: 0, percent: true }, months: 53, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } : null })} /></div>
       ${s && html`
         ${block('teal', 'bank', 'Sözleşme tutarı', 'tahsisatta firmaya gelen · kampanyalı fiyatın', html`
           <${AmountPercentFields} value=${s.amount} base=${base} onChange=${(v) => up({ amount: v })} />
           <${OutlineButton} cls="full" icon="check" color="var(--teal)" onClick=${() => up({ amount: { amount: Math.round(rest), percent: false } })}>Kalanın tamamı (${moneyShort(rest)})</${OutlineButton}>`)}
-        <div class="alloc-result grad-logo">
-          <small>Tahsisat</small>
-          ${plan ? html`
-            <strong class="big">${plan.allocationMonth}. ay · ${dateOf(plan.allocationMonth)}</strong>
-            <small>${plan.manual ? `Elle belirlendi (kurala göre ${plan.computedMonth}. ay)` : "Birikim %45 ve vadenin %45'i kuralıyla"}</small>
-            <div class="ar-grid">
-              <span><small>Gelecek tutar</small><strong>${moneyShort(plan.amount)}</strong></span>
-              <span><small>Bugünkü değeri</small><strong>${moneyShort(pv(plan))}</strong></span>
-              <span><small>Tahsisat maliyeti</small><strong>${moneyShort(cost)}<br />${percent(plan.amount > 0 ? cost / plan.amount : 0)} (tutarın)</strong></span>
-              <span><small>Maliyet oranına katkı</small><strong>${percent(input.listPrice > 0 ? cost / input.listPrice : 0)}</strong></span>
-            </div>
-            <small>Baz oran ${percent(app.settings.baseRate)} / ay ile; firma taksitlerine yedirilmez.</small>`
-          : html`<strong class="big">Sözleşme tutarını gir</strong><small>Tahsisat ayı, tutarı ve maliyeti burada hesaplanır.</small>`}
-        </div>
         ${block('navy', 'download', 'Şirkete peşinat', 'müşterinin tasarruf şirketine · sözleşme tutarının', html`
           <${AmountPercentFields} value=${downV} base=${amount} onChange=${(v) => up({ down: v })} />
           <div class="chips-wrap">${[0, 10, 20, 30, 40].map((x) => html`<${Chip} label=${x === 0 ? 'Peşinatsız' : '%' + x} color="var(--wordmark)" selected=${!!plan && Math.abs(plan.down - plan.amount * x / 100) < 1} onClick=${() => up({ down: { amount: x, percent: true } })} />`)}</div>`)}
