@@ -62,7 +62,7 @@ function PlanDoc({ plan, a, fields, rep }) {
   const dual = !!(a.loan || a.savings);
   const crow = dual ? customerRows(a, start) : [];
   const csum = (f) => crow.reduce((t, x) => t + f(x), 0);
-  const hasS = crow.some((x) => x.savings > 0), hasB = crow.some((x) => x.bank > 0);
+  const hasS = crow.some((x) => x.savings > 0), hasB = crow.some((x) => x.bank > 0), hasA = crow.some((x) => x.allocation > 0);
   const amt = (v) => (v > 0 ? money(v) : '—');
   return html`
     <div class="pr-page">
@@ -76,17 +76,17 @@ function PlanDoc({ plan, a, fields, rep }) {
         ${a.savings && html`<${Box} label=${`Tahsisat (${a.savings.allocationMonth}. ay)`} value=${moneyShort(a.savings.amount)} tone="teal" />`}
         ${interims.length > 0 && html`<${Box} label="Ara ödemeler" value=${`${interims.length} · ${moneyShort(interims.reduce((s, r) => s + r.amount, 0))}`} tone="teal" />`}
         ${a.installmentCount > 0 && html`<${Box} label=${`${a.installmentCount} × ${dual ? 'firma taksiti' : 'taksit'}`} value=${a.installment != null ? money(a.installment) : '—'} tone="blue" />`}
-        ${dual && html`<${Box} label="En yüksek aylık ödeme" value=${moneyShort(Math.max(0, ...crow.filter((x) => x.month > 0).map((x) => x.total)))} tone="blue" />`}
+        ${dual && html`<${Box} label="En yüksek aylık ödeme" value=${moneyShort(Math.max(0, ...crow.filter((x) => x.month > 0).map((x) => x.regular)))} tone="blue" />`}
         <${Box} label="Toplam ödeme" value=${moneyShort(dual ? csum((x) => x.total) : a.total)} tone="blue" />
         ${showCost && html`<div class="pr-box cost grad-logo"><span>Maliyet oranı</span><strong>${a.costRatio != null ? percent(a.costRatio) : '—'}</strong><em>Baz oran ${percent(a.baseRate)} · NBD ${moneyShort(a.pvAtBase)}</em></div>`}
       </div>
       ${dual ? html`<table class="pr-table">
-        <thead class="grad-logo"><tr><th>Sıra</th><th>Tarih</th><th class="num">Firma</th>${hasS && html`<th class="num">Tasarruf</th>`}${hasB && html`<th class="num">Banka</th>`}<th class="num">Toplam</th></tr></thead>
+        <thead class="grad-logo"><tr><th>Sıra</th><th>Tarih</th><th class="num">Firma</th>${hasS && html`<th class="num">Tasarruf</th>`}${hasB && html`<th class="num">Banka</th>`}${hasA && html`<th class="num">Tahsisat</th>`}<th class="num">Toplam</th></tr></thead>
         <tbody>
           ${crow.map((x) => html`<tr class=${x.month === 0 ? 'down' : ''}><td>${x.month === 0 ? 'Peşin' : `${x.month}. Ay`}</td><td>${dateMid(x.date)}</td>
-            <td class="num c-firm">${amt(x.firm)}</td>${hasS && html`<td class="num c-sav">${amt(x.savings)}</td>`}${hasB && html`<td class="num c-bank">${amt(x.bank)}</td>`}<td class="num"><strong>${money(x.total)}</strong></td></tr>`)}
+            <td class="num c-firm">${amt(x.firm)}</td>${hasS && html`<td class="num c-sav">${amt(x.savings)}</td>`}${hasB && html`<td class="num c-bank">${amt(x.bank)}</td>`}${hasA && html`<td class="num c-alloc">${amt(x.allocation)}</td>`}<td class="num"><strong>${money(x.total)}</strong></td></tr>`)}
         </tbody>
-        <tfoot><tr><td>Toplam</td><td /><td class="num">${money(csum((x) => x.firm))}</td>${hasS && html`<td class="num">${money(csum((x) => x.savings))}</td>`}${hasB && html`<td class="num">${money(csum((x) => x.bank))}</td>`}<td class="num">${money(csum((x) => x.total))}</td></tr></tfoot>
+        <tfoot><tr><td>Toplam</td><td /><td class="num">${money(csum((x) => x.firm))}</td>${hasS && html`<td class="num">${money(csum((x) => x.savings))}</td>`}${hasB && html`<td class="num">${money(csum((x) => x.bank))}</td>`}${hasA && html`<td class="num">${money(csum((x) => x.allocation))}</td>`}<td class="num">${money(csum((x) => x.total))}</td></tr></tfoot>
       </table>` : html`<table class="pr-table">
         <thead class="grad-logo"><tr><th>Sıra</th><th>Tarih</th><th class="num">Tutar</th>${showCost && html`<th class="num">NBD</th>`}</tr></thead>
         <tbody>

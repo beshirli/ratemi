@@ -609,9 +609,9 @@ function CustomerPanel({ a, start }) {
   const rows = customerRows(a, start);
   const st = customerStats(rows);
   const sum = (f) => rows.reduce((t, x) => t + f(x), 0);
-  const hasS = rows.some((x) => x.savings > 0), hasB = rows.some((x) => x.bank > 0);
+  const hasS = rows.some((x) => x.savings > 0), hasB = rows.some((x) => x.bank > 0), hasA = rows.some((x) => x.allocation > 0);
   const last = rows[rows.length - 1];
-  const cols = 2 + (hasS ? 1 : 0) + (hasB ? 1 : 0);
+  const cols = 2 + (hasS ? 1 : 0) + (hasB ? 1 : 0) + (hasA ? 1 : 0);
   const cell = (v, bold) => html`<span class=${'cv' + (v > 0 ? '' : ' none') + (bold ? ' b' : '')}>${v > 0 ? moneyShort(v) : '—'}</span>`;
   const fact = (l, v, note) => html`<div class="cc-fact"><span>${l}</span><strong>${v}</strong>${note && html`<em>${note}</em>`}</div>`;
   return html`
@@ -627,20 +627,21 @@ function CustomerPanel({ a, start }) {
         ${fact('Ortalama aylık', moneyShort(st.avgMonthly))}
         ${fact('En yüksek aylık', moneyShort(st.maxMonthly), st.maxInterim > 0 ? `+ ara ${moneyShort(st.maxInterim)}` : null)}
       </div>
-      <div class=${'cc-facts' + (hasS && hasB ? ' three' : '')}>
+      <div class=${'cc-facts' + ((hasS ? 1 : 0) + (hasB ? 1 : 0) + (hasA ? 1 : 0) >= 2 ? ' three' : '')}>
         ${fact('Firmaya', moneyShort(sum((x) => x.firm)))}
         ${hasS && fact('Tasarrufa', moneyShort(sum((x) => x.savings)))}
         ${hasB && fact('Bankaya', moneyShort(sum((x) => x.bank)))}
+        ${hasA && fact('Tahsisat', moneyShort(sum((x) => x.allocation)), 'mevcut')}
       </div>
       ${last && html`<div class="r-note">Son ödeme ${last.month}. ay · ${dateMid(last.date)}</div>`}
     </div>
     <div class="list-head"><span class="section-label">Müşterinin ödemeleri · ${rows.length} ay</span></div>
     <div class="ctab" style=${`--cols:${cols}`}>
-      <div class="ct-row ct-head"><span>Ay</span><span class="h"><i class="dot firm" />Firma</span>${hasS && html`<span class="h"><i class="dot sav" />Tasarruf</span>`}${hasB && html`<span class="h"><i class="dot bank" />Banka</span>`}<span class="h">Toplam</span></div>
-      ${rows.map((x) => html`<div class=${'ct-row' + (x.month === 0 ? ' zero' : x.interim > 0 ? ' interim' : '')} key=${x.month}>
+      <div class="ct-row ct-head"><span>Ay</span><span class="h"><i class="dot firm" />Firma</span>${hasS && html`<span class="h"><i class="dot sav" />Tasarruf</span>`}${hasB && html`<span class="h"><i class="dot bank" />Banka</span>`}${hasA && html`<span class="h"><i class="dot alloc" />Tahsisat</span>`}<span class="h">Toplam</span></div>
+      ${rows.map((x) => html`<div class=${'ct-row' + (x.month === 0 ? ' zero' : x.allocation > 0 ? ' alloc' : x.interim > 0 ? ' interim' : '')} key=${x.month}>
         <span class="ct-m"><strong>${x.month === 0 ? 'Peşin' : `${x.month}. ay`}${x.interim > 0 && x.month > 0 ? html`<em>ara</em>` : ''}</strong><small>${dateMid(x.date)}</small></span>
-        ${cell(x.firm, x.interim > 0)}${hasS && cell(x.savings)}${hasB && cell(x.bank)}<span class="cv sum">${moneyShort(x.total)}</span></div>`)}
-      <div class="ct-row ct-total"><span class="ct-m"><strong>Toplam</strong></span>${cell(sum((x) => x.firm), true)}${hasS && cell(sum((x) => x.savings), true)}${hasB && cell(sum((x) => x.bank), true)}<span class="cv sum">${moneyShort(st.total)}</span></div>
+        ${cell(x.firm, x.interim > 0)}${hasS && cell(x.savings)}${hasB && cell(x.bank)}${hasA && cell(x.allocation, true)}<span class="cv sum">${moneyShort(x.total)}</span></div>`)}
+      <div class="ct-row ct-total"><span class="ct-m"><strong>Toplam</strong></span>${cell(sum((x) => x.firm), true)}${hasS && cell(sum((x) => x.savings), true)}${hasB && cell(sum((x) => x.bank), true)}${hasA && cell(sum((x) => x.allocation), true)}<span class="cv sum">${moneyShort(st.total)}</span></div>
     </div>
     <p class="caption center">Müşteri planı salt okunur · Taksitleri düzenlemek için Firma planına geç</p>`;
 }

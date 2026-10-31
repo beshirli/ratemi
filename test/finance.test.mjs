@@ -138,6 +138,7 @@ for (const [name, inp] of [['satış', sale], ['kredi', { ...sale, credit: { amo
   const al = an.rows.find((r) => r.kind === Kind.ALLOCATION);
   eq('mevcut tahsisat ayı', 12, al.month); eq('mevcut tahsisat tutarı', basePrice(inp) * 0.2, al.amount, 0.01);
   eq('mevcut tahsisat satır yok', 0, an.savings.rows.length);
+  const cr = customerRows(an, inp.startDate); eq('müşteri: tahsisat sütunu', al.amount, cr.find((x) => x.month === 12).allocation, 0.01);
   const cb = costBreakdown(an); eq('mevcut tahsisat kırılım', an.costRatio, cb.ratio(cb.total), 1e-9);
 }
 const tr2 = suggest(tailorIn(5000, false, false), 0.0299, taxes);

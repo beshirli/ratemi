@@ -437,15 +437,17 @@ export function costBreakdown(a) {
  */
 export function customerRows(a, start) {
   const map = new Map();
-  const at = (m) => { if (!map.has(m)) map.set(m, { month: m, date: null, firm: 0, savings: 0, bank: 0, interim: 0 }); return map.get(m); };
+  const at = (m) => { if (!map.has(m)) map.set(m, { month: m, date: null, firm: 0, savings: 0, bank: 0, interim: 0, allocation: 0 }); return map.get(m); };
   a.rows.filter((r) => r.kind === Kind.DOWN || r.kind === Kind.INSTALLMENT || r.kind === Kind.INTERIM).forEach((r) => {
     const x = at(r.month); x.firm += r.amount; if (x.date == null) x.date = payDate(r, start);
     if (r.kind === Kind.INTERIM) x.interim += r.amount;
   });
   if (a.savings) a.savings.rows.filter((r) => r.saving + r.fee > 0).forEach((r) => { at(r.month).savings += r.saving + r.fee; });
   if (a.loan) a.loan.rows.forEach((r) => { at(r.month).bank += r.payment; });
+  // Mevcut tahsisat: o ayda firmaya geçen tutar müşteri planında ayrı sütun (yeni kampanyada çift sayılmasın diye yok).
+  if (a.savings && a.savings.existing) at(a.savings.allocationMonth).allocation = a.savings.amount;
   return [...map.values()].sort((x, y) => x.month - y.month)
-    .map((x) => ({ ...x, date: x.date ?? DateX.plusMonths(start, x.month), total: x.firm + x.savings + x.bank, regular: x.firm + x.savings + x.bank - x.interim }));
+    .map((x) => ({ ...x, date: x.date ?? DateX.plusMonths(start, x.month), total: x.firm + x.savings + x.bank + x.allocation, regular: x.firm + x.savings + x.bank - x.interim }));
 }
 
 /** Müşteri planı özeti (Android CustomerStats): peşinat, peşin gün toplamı, ara ödemeler, aylık (ara ödeme hariç) en düşük / ortalama / en yüksek. */
