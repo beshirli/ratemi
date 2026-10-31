@@ -716,3 +716,9 @@ body.modal-open { overflow: hidden; }
 .firm-boxes strong { font-weight: 600; }
 .model-card.on { border-color: var(--tone-ink, var(--teal)); }
 .blk .add-interim { height: 42px; font-size: 13.5px; }
+
+/* Bölüm simgesi açıkken (ve telefonda adım başlığında) ters çevrilir: beyaz zeminde lacivert. */
+.sec-head { padding-left: 0; }
+.sh-bar { margin-right: 4px; }
+.sh-ic { transition: background .15s, color .15s; }
+.sec-head.open .sh-ic, .sec-head:not(button) .sh-ic { background: #fff; color: #1C2B6E; }

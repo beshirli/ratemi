@@ -184,7 +184,7 @@ function secLines(i, a, input) {
   }
 }
 
-/** Bölüm başlığı (sabit yükseklik): sol ton çizgisi, numara, simge, ad + iki satır özet, maliyet hapı, anahtar, ok. */
+/** Bölüm başlığı (sabit yükseklik): sol ton çizgisi, simge (açıkken ters: beyaz zeminde koyu), ad + iki satır özet, maliyet hapı, anahtar, ok. */
 function SecHead({ i, pos, a, input, set, open, onOpen, chevron = true }) {
   const ready = input.listPrice > 0;
   const b = ready && !a.schedule.overflow ? costBreakdown(a) : null;
@@ -201,7 +201,6 @@ function SecHead({ i, pos, a, input, set, open, onOpen, chevron = true }) {
   return html`
     <${Tag} class=${'sec-head tone-' + SEC_TONE[i] + (open ? ' open' : '')} onClick=${onOpen} aria-expanded=${onOpen ? open : undefined}>
       <span class="sh-bar" />
-      <span class="sh-no">${pos + 1}</span>
       <span class="sh-ic"><${Icon} name=${SEC_ICON[i]} size=${18} /></span>
       <span class="sh-t"><strong>${SEC_TITLES[i]}</strong><span>${l1}</span><span>${l2}</span></span>
       ${b && (Math.abs(cost) >= 1 || i === 4) && html`<span class="sh-cost">maliyet ${cost < -0.5 ? '−' : ''}${percent(Math.abs(b.ratio(cost)))}</span>`}
