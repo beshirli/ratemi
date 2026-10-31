@@ -3,11 +3,12 @@
 // Masaüstünde (WIDE ve üstü) tek sayfa: solda dört girdi bölümü alt alta, sağda anında oluşan plan.
 // Her değişiklik planı anında yeniden hesaplar; kayıt isteğe bağlı ("Kaydet"), şablon ayrı düğmeyle.
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash, noTerm, creditAmount, SavingsFinance, savingsAmount, customerRows } from './finance.js';
+import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash, noTerm, creditAmount, SavingsFinance, savingsAmount, customerRows, costBreakdown } from './finance.js';
 import { money, moneyShort, percent, dateMid, dayShift, editable } from './format.js';
 import {
   Icon, IconButton, GradientButton, OutlineButton, TextAction, Chip, Segmented, SwitchRow, Badge,
   NumberField, FieldBox, AmountPercentFields, StepperField, TopBar, useApp,
+  Switch,
 } from './ui.js';
 import { RateSheet, BlockSheet, NameSheet, TargetCostSheet, RowEditSheet, ShareSheet, LoanSheet, SavingsSheet } from './sheets.js';
 import { BaseRatePill } from './screens.js';
@@ -51,6 +52,8 @@ export function PlanBuilderScreen() {
   const status = !plan.id ? 'Kaydedilmedi' : app.dirty ? 'Kaydedilmemiş değişiklik var' : 'Kayıtlı';
 
   const wide = useWide();
+  // Masaüstünde aç-kapa bölümler: tek bölüm açık (başta Ürün).
+  const [openSec, setOpenSec] = useState(0);
   // Peşin satışta vade ve oran adımları yok: Ürün → Peşinat → Plan.
   const cash = isCash(input);
   // Peşin satışta kredi / vade / oran yok; kredi kalanı karşılıyorsa vade / oran yok; Ayarlar'da kredi kapalıysa Kredi adımı yok.
@@ -94,7 +97,8 @@ export function PlanBuilderScreen() {
         </${TopBar}>
         <div class="content builder-wide">
           <section class="b-inputs">
-            ${visible.filter((i) => i < PLAN).map((i, pos) => html`<${InputsPanel} key=${i} input=${input} set=${set} step=${i} number=${pos + 1} />`)}
+            ${visible.filter((i) => i < PLAN).map((i, pos, list) => html`<${Accordion} key=${i} i=${i} pos=${pos} a=${a} input=${input} set=${set}
+              open=${openSec === i} onOpen=${() => setOpenSec(openSec === i ? -1 : i)} next=${list[pos + 1]} onNext=${() => setOpenSec(list[pos + 1] ?? -1)} />`)}
           </section>
           <section class="b-result">${result}</section>
         </div>
@@ -115,6 +119,7 @@ export function PlanBuilderScreen() {
       </div>
       <div class="content builder">
         ${step < PLAN ? html`
+          ${ready && !a.schedule.overflow && html`<${SectionCost} step=${step} a=${a} />`}
           <${InputsPanel} input=${input} set=${set} step=${step} />
           <div class="step-footer">
             ${ready && (a.schedule.overflow
@@ -144,6 +149,83 @@ export function PlanBuilderScreen() {
           </div>`
         : result}
       </div>
+    </div>`;
+}
+
+// --- Masaüstü aç-kapa bölüm ---
+
+const SEC_TITLES = ['Ürün ve fiyat', 'Peşinat ve ara ödemeler', 'Banka kredisi', 'Tahsisat (tasarruf finansmanı)', 'Firma kredisi'];
+const SEC_COST = ['discount', 'downInterim', 'bank', 'allocation', 'firm'];
+const pctOf = (v, base) => (base > 0 ? '%' + editable(Math.round(v / base * 10000) / 100) : '—');
+
+/**
+ * Aç-kapa bölüm (masaüstü): başlıkta numara, ad, özet (oran · tutar), bölümün maliyeti; kredi ve tahsisatta anahtar.
+ * Başlığa dokun → aç / kapa; "Sonraki" bir sonraki bölümü açar. Anahtar açılınca bölüm açılır, kapanınca kaldırılır.
+ */
+function Accordion({ i, pos, a, input, set, open, onOpen, next, onNext }) {
+  const base = basePrice(input);
+  const ready = input.listPrice > 0;
+  const b = ready && !a.schedule.overflow ? costBreakdown(a) : null;
+  const cost = b ? b[SEC_COST[i]] : 0;
+  const down = valueOf(input.down, base);
+  const summary = !ready ? (i === 0 ? 'Liste fiyatını gir' : '')
+    : i === 0 ? moneyShort(input.listPrice) + (input.discountOn ? ` · iskonto ${pctOf(input.listPrice - base, input.listPrice)}` : '')
+    : i === 1 ? `${pctOf(down, base)} · ${moneyShort(down)}` + (input.interims.length ? ` · ${input.interims.length} ara` : '')
+    : i === 2 ? (input.credit ? `${pctOf(creditAmount(input), base)} · ${moneyShort(creditAmount(input))}` : 'Kapalı')
+    : i === 3 ? (input.savings ? `${pctOf(savingsAmount(input), base)} · ${moneyShort(savingsAmount(input))}` : 'Kapalı')
+    : b ? `${pctOf(b.firmFinanced, base)} · ${moneyShort(b.firmFinanced)} · ${input.months} ay` : '';
+  const toggle = i === 2 || i === 3;
+  const on = i === 2 ? !!input.credit : !!input.savings;
+  const setOn = (v) => {
+    if (i === 2) set({ credit: v ? { amount: { amount: 20, percent: true }, months: input.loanType === 'HOUSING' ? 120 : 36, rate: 0.0249, subsidized: false, bankRate: 0.0249 } : null });
+    else set({ savings: v ? { amount: { amount: 20, percent: true }, down: { amount: 0, percent: true }, months: input.loanType === 'HOUSING' ? 120 : 60, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } : null });
+    if (v !== open) onOpen();
+  };
+  return html`
+    <div class=${'acc card' + (open ? ' open' : '')}>
+      <button class="acc-head" onClick=${onOpen} aria-expanded=${open}>
+        <span class="b-no">${pos + 1}</span>
+        <span class="acc-title"><strong>${SEC_TITLES[i]}</strong><small>${summary}</small></span>
+        ${b && Math.abs(cost) >= 1 && html`<span class="acc-cost">maliyet ${cost < 0 ? '−' : ''}${percent(Math.abs(b.ratio(cost)))}</span>`}
+        ${toggle && html`<span class="acc-switch" onClick=${(e) => e.stopPropagation()}><${Switch} checked=${on} onChange=${setOn} /></span>`}
+        <span class="acc-chev"><${Icon} name=${open ? 'up' : 'down'} size=${18} /></span>
+      </button>
+      ${open && html`
+        <div class="acc-body">
+          <${InputsPanel} input=${input} set=${set} step=${i} />
+          ${next != null && next < PLAN && html`<button class="acc-next" onClick=${onNext}>Sonraki: ${SEC_TITLES[next]} <${Icon} name="forward" size=${16} /></button>`}
+        </div>`}
+    </div>`;
+}
+
+/** Telefonda adımın üstünde o bölümün maliyeti (maliyet kırılımından). */
+function SectionCost({ step, a }) {
+  if (step > 4) return null;
+  const b = costBreakdown(a);
+  const v = b[SEC_COST[step]];
+  const label = ['İskonto maliyeti', 'Peşinat ve ara ödemelerin maliyeti', 'Banka kredisi maliyeti (katkı)', 'Tahsisat maliyeti', 'Firma kredisi maliyeti'][step];
+  return html`<div class="sec-cost"><span class="grow">${label}${v < -0.5 ? ' (kazanç)' : ''}</span><small>${moneyShort(v)}</small><strong>${percent(b.ratio(v))}</strong><em>/ ${a.costRatio != null ? percent(a.costRatio) : '—'}</em></div>`;
+}
+
+/** Firma kredisi özeti: vadelendirilen tutar ve oranı (kalan, otomatik), taksitlerin yeri, toplam, bölüm maliyeti. */
+function FirmSummary({ input }) {
+  const app = useApp();
+  const a = app.analyzePlan(app.plan);
+  if (!(input.listPrice > 0) || a.schedule.overflow) return null;
+  const b = costBreakdown(a);
+  const base = basePrice(input);
+  return html`
+    <div class="card b-sec firm-sum">
+      <div class="b-head">Firma kredisi<span class="caption grow right">kampanyalı fiyatın</span></div>
+      <div class="firm-boxes"><div><small>Oran</small><strong>${pctOf(b.firmFinanced, base)}</strong></div><div><small>Tutar</small><strong>${moneyShort(b.firmFinanced)}</strong></div></div>
+      <p class="caption">Kalan otomatik: kampanyalı fiyat − peşinat, ara ödemeler, banka kredisi, tahsisat.</p>
+      ${b.first && html`<div class="loan-sum neutral">
+        <span><small>${a.installmentCount} × taksit</small><strong>${a.installment != null ? money(a.installment) : '—'}</strong></span>
+        <span><small>Toplam geri dönüş</small><strong>${moneyShort(b.installmentTotal)}</strong></span>
+        <span><small>İlk taksit</small><strong>${dateMid(payDate(b.first, input.startDate))}</strong></span>
+        <span><small>Son taksit</small><strong>${dateMid(payDate(b.last, input.startDate))}</strong></span>
+      </div>
+      <p class="caption">Bu bölümün maliyeti ${b.firm < 0 ? '−' : ''}${percent(Math.abs(b.ratio(b.firm)))} · ${moneyShort(b.firm)}${b.firm < 0 ? ' (vade farkı kazancı)' : ''}</p>`}
     </div>`;
 }
 
@@ -241,7 +323,7 @@ function InputsPanel({ input, set, step, number }) {
 
     () => html`
     <div class="card b-sec">
-      <div class="b-head">Firma kredisi · aylık vade farkı</div>
+      <div class="b-head sub">Firma kredisi · aylık vade farkı</div>
       <div class="b-ctl">
         <div class="b-stepper">
           <${IconButton} icon="minus" label="Azalt" cls="filled" onClick=${() => set({ rate: Math.max(0, Math.round((input.rate - 0.0001) * 1e6) / 1e6) })} />
@@ -255,7 +337,7 @@ function InputsPanel({ input, set, step, number }) {
     </div>`,
   ];
   // 4. adım (firma kredisi): vade ve aylık vade farkı birlikte.
-  return step === 4 ? html`${steps[4]()}${steps[5]()}` : steps[step]();
+  return step === 4 ? html`<${FirmSummary} input=${input} />${steps[4]()}${steps[5]()}` : steps[step]();
 }
 
 // --- Kredi adımı ---
@@ -281,8 +363,8 @@ function CreditStep({ input, set, no }) {
   return html`
     <div class="card b-sec">
       <div class="b-head">${no}Banka kredisi${c && html`<span class="caption grow right">kampanyalı fiyatın</span>`}</div>
-      <${SwitchRow} title="Banka kredisi kullan" caption="Kredi peşinat gününde firmaya peşin geçer; müşteri bankaya taksitle öder." checked=${!!c}
-        onChange=${(on) => set({ credit: on ? { amount: { amount: Math.round(rest), percent: false }, months: input.loanType === 'HOUSING' ? 120 : 36, rate: 0.0249, subsidized: false, bankRate: 0.0249 } : null })} />
+      <div class="sec-toggle"><${SwitchRow} title="Banka kredisi kullan" caption="Kredi peşinat gününde firmaya peşin geçer; müşteri bankaya taksitle öder." checked=${!!c}
+        onChange=${(on) => set({ credit: on ? { amount: { amount: 20, percent: true }, months: input.loanType === 'HOUSING' ? 120 : 36, rate: 0.0249, subsidized: false, bankRate: 0.0249 } : null })} /></div>
       ${c && html`
         <${AmountPercentFields} value=${c.amount} base=${base} onChange=${(v) => setC({ amount: v })} />
         <${OutlineButton} cls="full" icon="check" color="var(--teal)" onClick=${() => setC({ amount: { amount: Math.round(rest), percent: false } })}>Kalanın tamamı (${moneyShort(rest)})</${OutlineButton}>
@@ -378,9 +460,12 @@ function SavingsStep({ input, set, no }) {
   return html`
     <div class="card b-sec">
       <div class="b-head">${no}Tahsisat (tasarruf finansmanı)</div>
-      <${SwitchRow} title="Tahsisat kullan" caption="Tasarruf şirketi tahsisat ayında sözleşme tutarının tamamını firmaya tek seferde öder." checked=${!!s}
-        onChange=${(on) => set({ savings: on ? { amount: { amount: Math.round(rest), percent: false }, down: { amount: 0, percent: true }, months: housing ? 120 : 60, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } : null })} />
+      <div class="sec-toggle"><${SwitchRow} title="Tahsisat kullan" caption="Tasarruf şirketi tahsisat ayında sözleşme tutarının tamamını firmaya tek seferde öder." checked=${!!s}
+        onChange=${(on) => set({ savings: on ? { amount: { amount: 20, percent: true }, down: { amount: 0, percent: true }, months: housing ? 120 : 60, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } : null })} /></div>
       ${s && html`
+        ${block('teal', 'bank', 'Sözleşme tutarı', 'tahsisatta firmaya gelen · kampanyalı fiyatın', html`
+          <${AmountPercentFields} value=${s.amount} base=${base} onChange=${(v) => up({ amount: v })} />
+          <${OutlineButton} cls="full" icon="check" color="var(--teal)" onClick=${() => up({ amount: { amount: Math.round(rest), percent: false } })}>Kalanın tamamı (${moneyShort(rest)})</${OutlineButton}>`)}
         <div class="alloc-result grad-logo">
           <small>Tahsisat</small>
           ${plan ? html`
@@ -395,9 +480,6 @@ function SavingsStep({ input, set, no }) {
             <small>Baz oran ${percent(app.settings.baseRate)} / ay ile; firma taksitlerine yedirilmez.</small>`
           : html`<strong class="big">Sözleşme tutarını gir</strong><small>Tahsisat ayı, tutarı ve maliyeti burada hesaplanır.</small>`}
         </div>
-        ${block('teal', 'bank', 'Sözleşme tutarı', 'tahsisatta firmaya gelen · kampanyalı fiyatın', html`
-          <${AmountPercentFields} value=${s.amount} base=${base} onChange=${(v) => up({ amount: v })} />
-          <${OutlineButton} cls="full" icon="check" color="var(--teal)" onClick=${() => up({ amount: { amount: Math.round(rest), percent: false } })}>Kalanın tamamı (${moneyShort(rest)})</${OutlineButton}>`)}
         ${block('navy', 'download', 'Şirkete peşinat', 'müşterinin tasarruf şirketine · sözleşme tutarının', html`
           <${AmountPercentFields} value=${downV} base=${amount} onChange=${(v) => up({ down: v })} />
           <div class="chips-wrap">${[0, 10, 20, 30, 40].map((x) => html`<${Chip} label=${x === 0 ? 'Peşinatsız' : '%' + x} color="var(--wordmark)" selected=${!!plan && Math.abs(plan.down - plan.amount * x / 100) < 1} onClick=${() => up({ down: { amount: x, percent: true } })} />`)}</div>`)}
@@ -478,7 +560,7 @@ function ResultPanel({ plan, a }) {
       <div class="pt-head"><span class="c-no">Sıra</span><span class="c-date">Tarih</span><span class="c-amt">Tutar</span><span class="c-cum">Tahsilat</span><span class="c-pv">NBD</span><span class="c-pvc">NBD Σ</span><span class="c-lock" /></div>
       ${rows.map((p, i) => html`<${TableRow} key=${p.id} p=${p} start=${start} pv=${a.pv(p)} collected=${a.listPrice > 0 ? rows.slice(0, i + 1).reduce((t, r) => t + r.amount, 0) / a.listPrice : null}
         collectedPv=${totalPv > 0 ? rows.slice(0, i + 1).reduce((t, r) => t + a.pv(r), 0) / totalPv : null} onClick=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && editRow(p)} onLock=${() => p.kind !== Kind.CREDIT && p.kind !== Kind.ALLOCATION && ops.toggleLock(p.id)} />`)}
-      <div class="pt-total"><span class="c-no">Toplam</span><span class="c-date" /><span class="c-amt">${money(a.total)}</span>${a.listPrice > 0 && html`<span class="c-cum full">Σ ${percent(a.total / a.listPrice, 1)}<em> tahsil</em></span>`}<span class="c-pv">${moneyShort(a.pvAtBase)}</span>${totalPv > 0 && html`<span class="c-pvc">Σ ${percent(1, 1)}</span>`}<span class="c-lock" /></div>
+      <div class="pt-total"><span class="c-no">Toplam</span><span class="c-date" /><span class="c-amt">${money(a.total)}</span>${a.listPrice > 0 && html`<span class="c-cum full">Σ ${percent(a.total / a.listPrice, 1)}</span>`}<span class="c-pv">${moneyShort(a.pvAtBase)}</span>${totalPv > 0 && html`<span class="c-pvc">Σ ${percent(1, 1)}</span>`}<span class="c-lock" /></div>
     </div>
     ${loanSavingsCards(app, a, start)}`;
 }
@@ -570,14 +652,12 @@ function CostCard({ a, onClick }) {
   if (down > 0) facts.push(['Peşinat', moneyShort(down)]);
   if (a.loan) facts.push(['Banka kredisi', moneyShort(a.loan.principal)]);
   if (a.savings) facts.push([`Tahsisat (${a.savings.allocationMonth}. ay)`, moneyShort(a.savings.amount)]);
-  // Tahsisatın kendi maliyeti (firma vadesine yedirilmez): yalnız kullanıcıya.
-  if (a.allocationCost > 0) facts.push(['Tahsisat maliyeti', `${moneyShort(a.allocationCost)} · ${percent(a.allocationCost / a.listPrice)}`]);
   if (interims.length) facts.push(['Ara ödemeler', interims.every((r) => r.amount === interims[0].amount) ? `${interims.length} × ${moneyShort(interims[0].amount)}` : `${interims.length} · ${moneyShort(interims.reduce((s, r) => s + r.amount, 0))}`]);
   // Firma vadesi yoksa (kredi kalanı karşılıyor) taksit satırı yok.
   if (a.installmentCount > 0) facts.push([`${a.installmentCount} × taksit`, a.installment != null ? money(a.installment) : '—']);
   facts.push(['Toplam ödeme', moneyShort(a.total)]);
-  // Katkılı kredi: yalnız kullanıcıya (müşteri PDF'inde yok).
-  if (a.contribution > 0) facts.push(['Kredi katkısı', '−' + moneyShort(a.contribution)]);
+  const b = costBreakdown(a);
+  const parts = [['İskonto', b.discount], ['Peşinat ve ara ödemeler', b.downInterim], ['Banka kredisi', b.bank], ['Tahsisat', b.allocation], ['Firma kredisi', b.firm]].filter(([, v]) => Math.abs(v) >= 1);
   return html`
     <button class="cost-card grad-logo" onClick=${onClick}>
       <div class="cc-top">
@@ -585,6 +665,11 @@ function CostCard({ a, onClick }) {
         <div class="right"><div class="r-label">Toplam NBD</div><div class="r-mid">${moneyShort(a.pvAtBase)}</div></div>
       </div>
       <div class="cc-facts">${facts.map(([l, v]) => html`<div class="cc-fact"><span>${l}</span><strong>${v}</strong></div>`)}</div>
+      ${parts.length > 0 && html`<div class="cc-break">
+        <div class="cb-title">Maliyet kırılımı</div>
+        ${parts.map(([l, v]) => html`<div class="cb-row"><span>${l}${v < 0 ? ' (kazanç)' : ''}</span><small>${moneyShort(v)}</small><strong>${percent(b.ratio(v))}</strong></div>`)}
+        <div class="cb-row total"><span>Toplam maliyet</span><small>${moneyShort(b.total)}</small><strong>${percent(b.ratio(b.total))}</strong></div>
+      </div>`}
       <div class="r-note">Hedef maliyeti değiştirmek için dokun</div>
     </button>`;
 }
@@ -597,7 +682,7 @@ function TableRow({ p, start, pv, onClick, onLock, collected, collectedPv }) {
       <span class="c-no"><strong>${label}</strong>${p.shiftDays !== 0 && html`<${Badge} tone="amber">${dayShift(p.shiftDays)}</${Badge}>`}</span>
       <span class="c-date">${dateMid(payDate(p, start))}${p.kind === Kind.GRACE ? ' · ödemesiz' : ''}${p.shiftDays !== 0 ? html`<em> p ${editable(period(p))}</em>` : ''}</span>
       <span class="c-amt">${money(p.amount)}</span>
-      ${collected != null && html`<span class=${'c-cum' + (collected >= 1 - 1e-9 ? ' full' : '')}>Σ ${percent(collected, 1)}<em> tahsil</em></span>`}
+      ${collected != null && html`<span class=${'c-cum' + (collected >= 1 - 1e-9 ? ' full' : '')}>Σ ${percent(collected, 1)}</span>`}
       <span class="c-pv">${moneyShort(pv)}</span>
       ${collectedPv != null && html`<span class="c-pvc">Σ ${percent(collectedPv, 1)}</span>`}
       ${p.kind === Kind.CREDIT || p.kind === Kind.ALLOCATION ? html`<span class="c-lock" />` : html`<button class="c-lock icon-btn" title=${p.locked ? 'Kilitli, kilidi aç' : 'Serbest, kilitle'} onClick=${(e) => { e.stopPropagation(); onLock(); }}><${Icon} name=${p.locked ? 'lock' : 'unlock'} size=${17} /></button>`}

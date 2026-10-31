@@ -393,6 +393,29 @@ export function analyze(plan, baseRate, taxes) {
 }
 
 /**
+ * Maliyet kırılımı (Android Analysis.costBreakdown; TL): iskonto, peşinat ve ara ödemeler (tutar − NBD), banka kredisi
+ * (katkı), tahsisat (tutar − NBD), firma kredisi (vadelendirilen − taksitlerin NBD'si; eksi = vade farkı kazancı).
+ */
+export function costBreakdown(a) {
+  const pv = (r) => a.pv(r);
+  const by = (k) => a.rows.filter((r) => k.includes(r.kind));
+  const nonInst = a.rows.filter((r) => r.kind !== Kind.INSTALLMENT && r.kind !== Kind.GRACE);
+  const firmFinanced = a.basePrice - nonInst.reduce((t, r) => t + r.amount, 0);
+  const inst = by([Kind.INSTALLMENT]);
+  const b = {
+    discount: a.listPrice - a.basePrice,
+    downInterim: by([Kind.DOWN, Kind.INTERIM]).reduce((t, r) => t + r.amount - pv(r), 0),
+    bank: a.contribution + by([Kind.CREDIT]).reduce((t, r) => t + r.amount - pv(r), 0),
+    allocation: by([Kind.ALLOCATION]).reduce((t, r) => t + r.amount - pv(r), 0),
+    firm: firmFinanced - inst.reduce((t, r) => t + pv(r), 0),
+  };
+  const total = b.discount + b.downInterim + b.bank + b.allocation + b.firm;
+  const ratio = (v) => (a.listPrice > 0 ? v / a.listPrice : 0);
+  const sorted = [...inst].sort((x, y) => period(x) - period(y));
+  return { ...b, total, ratio, firmFinanced, first: sorted[0] || null, last: sorted[sorted.length - 1] || null, installmentTotal: inst.reduce((t, r) => t + r.amount, 0) };
+}
+
+/**
  * Müşterinin konsolide ödeme planı (Android Analysis.customerRows): ay ay firmaya (peşinat, taksit, ara ödeme), tasarruf
  * şirketine (taksit + ücret; 0. ayda şirkete peşinat) ve bankaya (kredi taksiti). Kredi ve tahsisat müşteride satır değil.
  */

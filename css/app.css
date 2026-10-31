@@ -414,10 +414,8 @@ body.modal-open { overflow: hidden; }
 .wiz-body { display: flex; flex-direction: column; gap: 10px; }
 .sub-label { font-size: 13px; font-weight: 700; margin-top: 6px; }
 /* Tahsisat sayfası: renkli bölüm kartları. */
-.sv-block { --c: var(--teal); display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 16px;
-  background: color-mix(in srgb, var(--c) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--c) 25%, transparent); }
-.sv-block.tone-navy { --c: var(--wordmark); } .sv-block.tone-blue { --c: var(--tint); } .sv-block.tone-indigo { --c: var(--indigo); }
-.sv-block.tone-amber { --c: var(--amber); } .sv-block.tone-green { --c: var(--green); }
+.sv-block { --c: var(--label); display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 16px;
+  background: var(--fill); border: 1px solid var(--sep); }
 .sv-head { display: flex; align-items: center; gap: 10px; }
 .sv-head span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .sv-head strong { color: var(--c); font-size: 15px; } .sv-head small { font-size: 11.5px; color: var(--label2); }
@@ -599,3 +597,40 @@ body.modal-open { overflow: hidden; }
 @container (min-width: 600px) {
   .pt-row:has(.c-cum), .pt-total:has(.c-cum) { grid-template-areas: "no date amt pv lock" "no date cum pvc lock"; }
 }
+
+/* Masaüstü aç-kapa bölümler: beyaz kart, gri numara, başlıkta özet ve maliyet. */
+.acc { padding: 0; overflow: hidden; }
+.acc-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 16px; text-align: left; }
+.acc.open .acc-head { border-bottom: 1px solid var(--sep); background: linear-gradient(90deg, color-mix(in srgb, var(--tint) 6%, transparent), transparent 60%); }
+.acc .b-no { background: var(--fill); color: var(--label2); }
+.acc.open .b-no { background: var(--g-logo, var(--tint)); color: #fff; }
+.acc-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.acc-title strong { font-size: 15px; }
+.acc-title small { font-size: 12px; color: var(--label2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc-cost { font-size: 11.5px; color: var(--label3); white-space: nowrap; }
+.acc-chev { color: var(--label3); display: grid; place-items: center; }
+.acc-body { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.acc-body .card.b-sec { box-shadow: none; border: 0; background: transparent; padding: 0; }
+.acc-body .b-sec > .b-head:not(.sub) { display: none; }
+.acc-body .sec-toggle { display: none; }
+.acc-next { align-self: flex-end; display: flex; align-items: center; gap: 4px; font-weight: 700; font-size: 13px; color: var(--tint); padding: 6px 4px; }
+/* Telefonda adımın üstünde bölüm maliyeti. */
+.sec-cost { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px; background: var(--fill); font-size: 12.5px; color: var(--label2); }
+.sec-cost strong { font-size: 14px; color: var(--label); } .sec-cost em { font-style: normal; font-size: 11px; color: var(--label3); }
+/* Firma kredisi özeti. */
+.firm-boxes { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+.firm-boxes div { background: var(--fill); border-radius: 14px; padding: 10px 14px; display: flex; flex-direction: column; }
+.firm-boxes small { font-size: 12px; color: var(--label2); } .firm-boxes strong { font-size: 22px; }
+.loan-sum.neutral { background: var(--fill); }
+/* Maliyet kartındaki kırılım. */
+.cc-break { margin-top: 10px; padding: 8px 12px; border-radius: 14px; background: rgba(255, 255, 255, .14); display: flex; flex-direction: column; gap: 3px; text-align: left; }
+.cb-title { font-size: 11.5px; font-weight: 600; opacity: .8; margin-bottom: 2px; }
+.cb-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.cb-row span { flex: 1; } .cb-row small { font-size: 11px; opacity: .75; } .cb-row strong { width: 64px; text-align: right; font-size: 14px; }
+.cb-row.total { border-top: 1px solid rgba(255, 255, 255, .3); padding-top: 4px; margin-top: 2px; font-weight: 700; }
+/* Tablo: tutarlar büyük ve kalın; kümülatif yüzdeler ince, küçük, gri. */
+.pt-row .c-amt { font-size: 15px; font-weight: 700; }
+.pt-row .c-pv { font-size: 12.5px; font-weight: 600; }
+.c-cum, .c-cum.full, .c-pvc, .pt-total .c-pvc { font-size: 10.5px; font-weight: 400; color: var(--label3); }
+.acc-cost, .acc-switch, .acc-chev { flex: none; }
+.acc-switch { margin-left: 4px; }

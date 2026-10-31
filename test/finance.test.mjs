@@ -1,5 +1,5 @@
 // Android FinanceTest'teki örnek rakamlar: node test/finance.test.mjs
-import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice, Solve, isCash, BankLoan, noTerm, SavingsFinance, customerRows } from '../js/finance.js';
+import { DateX, Kind, Finance, Schedules, analyze, RowEdits, Offers, ValueConverter, basePrice, Solve, isCash, BankLoan, noTerm, SavingsFinance, customerRows, costBreakdown } from '../js/finance.js';
 import { parseNumber } from '../js/format.js';
 import { suggest, defaultCreditTerms, defaultSavingsTerms } from '../js/tailor.js';
 let fails = 0;
@@ -111,6 +111,14 @@ for (const o of picks) {
   eq('müşteri: firma toplamı', o.analysis.rows.filter((r) => r.kind !== Kind.CREDIT && r.kind !== Kind.ALLOCATION).reduce((t, r) => t + r.amount, 0), sum((x) => x.firm), 0.01);
   eq('müşteri: banka toplamı', o.analysis.loan ? o.analysis.loan.rows.reduce((t, r) => t + r.payment, 0) : 0, sum((x) => x.bank), 0.01);
   eq('müşteri: tasarruf toplamı', o.analysis.savings ? o.analysis.savings.totalPaid : 0, sum((x) => x.savings), 0.01);
+}
+// Maliyet kırılımı: toplam = maliyet oranı (kredi + katkı, tahsisat, ödemesiz dönem).
+for (const [name, inp] of [['satış', sale], ['kredi', { ...sale, credit: { amount: { amount: 20, percent: true }, months: 60, rate: 0.0099, subsidized: true, bankRate: 0.035 } }],
+  ['tahsisat', { ...sale, interims: [], savings: { amount: { amount: 20, percent: true }, down: { amount: 10, percent: true }, months: 60, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } }],
+  ['ödemesiz', { ...sale, graceMonths: 6 }]]) {
+  const an = analyze({ input: inp, rows: null, balance: null }, 0.0299, taxes);
+  const cb = costBreakdown(an);
+  eq(`kırılım = maliyet (${name})`, an.costRatio, cb.ratio(cb.total), 1e-9);
 }
 const tr2 = suggest(tailorIn(5000, false, false), 0.0299, taxes);
 eq('terzi: bütçe yetmez', 1, !tr2.found && tr2.shortfall && tr2.closest ? 1 : 0);
