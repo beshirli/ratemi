@@ -15,7 +15,9 @@ import { BaseRatePill } from './screens.js';
 const priceStep = (v) => (v >= 10e6 ? 50000 : v >= 1e6 ? 10000 : v >= 1e5 ? 1000 : v >= 1e4 ? 100 : 10);
 const yearsText = (m) => (m % 12 === 0 ? `${m / 12} yıl` : m > 12 ? `${Math.floor(m / 12)} yıl ${m % 12} ay` : '');
 const TYPES = [['HOUSING', 'Konut', false], ['VEHICLE', 'Taşıt', true], ['PERSONAL', 'İhtiyaç', true]];
-const STEPS = ['Ürün', 'Peşinat', 'Kredi', 'Tahsisat', 'Vade', 'Oran', 'Plan'];
+// Adım adları: geniş ekranda uzun, telefonda kısa (Banka = banka kredisi, Firma = firma kredisi: vade + vade farkı).
+const STEPS = ['Ürün', 'Peşinat', 'Banka kredisi', 'Tahsisat', 'Firma kredisi', 'Firma kredisi', 'Plan'];
+const STEPS_SHORT = ['Ürün', 'Peşinat', 'Banka', 'Tahsisat', 'Firma', 'Firma', 'Plan'];
 const PLAN = 6;
 const WIDE = '(min-width: 1100px)';
 
@@ -57,7 +59,7 @@ export function PlanBuilderScreen() {
     0, 1,
     ...(app.settings.creditEnabled !== false || input.credit ? [2] : []),
     ...(app.settings.savingsEnabled !== false || input.savings ? [3] : []),
-    ...(noTerm(input) ? [] : [4, 5]),
+    ...(noTerm(input) ? [] : [4]),
     PLAN,
   ];
   const step = visible.includes(app.planStep) ? app.planStep : PLAN;
@@ -108,7 +110,7 @@ export function PlanBuilderScreen() {
       <div class="step-tabs">
         ${visible.map((i, pos) => html`
           <button key=${i} class=${'st-tab' + (i === step ? ' on' : i < step ? ' done' : '')} disabled=${i > 0 && !ready} onClick=${() => i !== step && goStep(i)}>
-            <span class="st-no">${i < step ? html`<${Icon} name="check" size=${14} />` : pos + 1}</span><span class="st-name">${STEPS[i]}</span>
+            <span class="st-no">${i < step ? html`<${Icon} name="check" size=${14} />` : pos + 1}</span><span class="st-name"><span class="st-long">${STEPS[i]}</span><span class="st-short">${STEPS_SHORT[i]}</span></span>
           </button>`)}
       </div>
       <div class="content builder">
@@ -208,7 +210,7 @@ function InputsPanel({ input, set, step, number }) {
 
     () => html`
     <div class="card b-sec">
-      <div class="b-head">${no}Vade</div>
+      <div class="b-head">${no}Firma kredisi · vade</div>
       <div class="b-ctl">
         <span class="field-label">Taksit sayısı</span>
         <div class="b-stepper">
@@ -239,7 +241,7 @@ function InputsPanel({ input, set, step, number }) {
 
     () => html`
     <div class="card b-sec">
-      <div class="b-head">${no}Aylık vade farkı</div>
+      <div class="b-head">Firma kredisi · aylık vade farkı</div>
       <div class="b-ctl">
         <div class="b-stepper">
           <${IconButton} icon="minus" label="Azalt" cls="filled" onClick=${() => set({ rate: Math.max(0, Math.round((input.rate - 0.0001) * 1e6) / 1e6) })} />
@@ -252,7 +254,8 @@ function InputsPanel({ input, set, step, number }) {
       <div class="chips-wrap">${[0, 0.0099, 0.0149, 0.0199, 0.0249, 0.0299, 0.0349, 0.0399].map((r) => html`<${Chip} label=${r === 0 ? 'Vade farksız' : percent(r)} selected=${Math.abs(input.rate - r) < 1e-9} onClick=${() => set({ rate: r })} />`)}</div>
     </div>`,
   ];
-  return steps[step]();
+  // 4. adım (firma kredisi): vade ve aylık vade farkı birlikte.
+  return step === 4 ? html`${steps[4]()}${steps[5]()}` : steps[step]();
 }
 
 // --- Kredi adımı ---

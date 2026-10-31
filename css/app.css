@@ -584,3 +584,7 @@ body.modal-open { overflow: hidden; }
 .ctable .firm { color: var(--tint); } .ctable .sav { color: var(--teal); } .ctable .bank { color: var(--wordmark); }
 .ctable .pt-total .c-part { font-weight: 700; }
 @media (min-width: 700px) { .ctable .c-part { width: 110px; } .ctable .c-sum { width: 120px; } }
+
+/* Adım adları: telefonda kısa, genişte uzun */
+.st-name .st-long { display: none; }
+@media (min-width: 700px) { .st-name .st-long { display: inline; } .st-name .st-short { display: none; } }
