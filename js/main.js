@@ -184,6 +184,8 @@ function App() {
       discountOn: settings.discountOn, discount: { amount: settings.discountOn ? settings.discountPercent : 0, percent: true },
       down: { amount: 0, percent: true }, interims: [], skipOnInterim: false,
       months: 24, rate: settings.baseRate, startDate: DateX.today(), graceMonths: 0,
+      // Ara ödeme maliyeti varsayılan olarak firma kredisine yansıtılmaz (kullanıcı isteği).
+      interimToFirm: false,
     },
   });
 

@@ -315,7 +315,7 @@ function InputsPanel({ input, set, step }) {
     <${Blk} icon="restore" title="Ara ödeme ayında" caption="taksit ve maliyetin firmaya yansıması">
       ${conflict && html`<${Segmented} options=${['Taksit de ödenir', 'Taksit pas geçilir']} index=${input.skipOnInterim ? 1 : 0} onChange=${(i) => set({ skipOnInterim: i === 1 })} />`}
       ${!noTerm(input) && html`<${SwitchRow} title="Ara ödemelerin maliyetini firma kredisine yansıt"
-        caption=${input.interimToFirm !== false ? 'Taksitler ara ödemelerin geç gelmesini telafi eder (vade farkı oranıyla).' : 'Taksitler ara ödemeleri nominal tutarıyla düşer; gecikme maliyeti firmaya kalır.'}
+        caption=${input.interimToFirm !== false ? `Taksitler ara ödemelerin geç gelmesini aylık vade farkıyla (${percent(input.rate)}) telafi eder.` : 'Taksitler ara ödemeleri nominal tutarıyla düşer; gecikme maliyeti firmaya kalır.'}
         checked=${input.interimToFirm !== false} onChange=${(v) => set({ interimToFirm: v })} />`}
     </${Blk}>`}`}`);
   }
@@ -682,7 +682,7 @@ function CostCard({ a, onClick }) {
   // Firma vadesi yoksa (kredi kalanı karşılıyor) taksit satırı yok.
   if (a.installmentCount > 0) facts.push([`${a.installmentCount} × taksit`, a.installment != null ? money(a.installment) : '—']);
   const b = costBreakdown(a);
-  const parts = [['İskonto', b.discount], ['Peşinat ve ara ödemeler', b.downInterim], ['Banka kredisi', b.bank], ['Tahsisat', b.allocation], ['Firma kredisi', b.firm]].filter(([, v]) => Math.abs(v) >= 1);
+  const parts = [['İskonto', b.discount], ['Ara ödemeler', b.downInterim], ['Banka kredisi', b.bank], ['Tahsisat', b.allocation], ['Firma kredisi', b.firm]].filter(([, v]) => Math.abs(v) >= 1);
   return html`
     <button class="cost-card grad-logo" onClick=${onClick}>
       <div class="cc-top">
