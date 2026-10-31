@@ -131,6 +131,15 @@ for (const [name, inp] of [['satış', sale], ['kredi', { ...sale, credit: { amo
   eq('yansıtma: taksit küçük', 1, off.installment < on.installment ? 1 : 0);
   eq('yansıtma: kırılım = maliyet', off.costRatio, boff.ratio(boff.total), 1e-9);
 }
+// Mevcut tahsisat: tutar girilen ayda, tasarruf planı yok.
+{
+  const inp = { ...sale, interims: [], savings: { amount: { amount: 20, percent: true }, down: { amount: 0, percent: true }, months: 0, feeRate: 0, existing: true, allocationMonth: 12 } };
+  const an = analyze({ input: inp, rows: null, balance: null }, 0.0299, taxes);
+  const al = an.rows.find((r) => r.kind === Kind.ALLOCATION);
+  eq('mevcut tahsisat ayı', 12, al.month); eq('mevcut tahsisat tutarı', basePrice(inp) * 0.2, al.amount, 0.01);
+  eq('mevcut tahsisat satır yok', 0, an.savings.rows.length);
+  const cb = costBreakdown(an); eq('mevcut tahsisat kırılım', an.costRatio, cb.ratio(cb.total), 1e-9);
+}
 const tr2 = suggest(tailorIn(5000, false, false), 0.0299, taxes);
 eq('terzi: bütçe yetmez', 1, !tr2.found && tr2.shortfall && tr2.closest ? 1 : 0);
 console.log(fails ? `${fails} HATA` : 'Tüm testler geçti');

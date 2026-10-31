@@ -175,6 +175,13 @@ export const SavingsFinance = {
     const s = input.savings;
     if (!s) return null;
     const amount = savingsAmount(input);
+    if (s.existing) {
+      // Mevcut tahsisat (Android Savings.existing): tutar girilen ayda firmaya tek seferde; tasarruf planı yok.
+      if (!(amount > 0)) return null;
+      const m = Math.max(0, s.allocationMonth ?? 6);
+      return { amount, down: 0, months: m, fee: 0, feeRate: 0, growth: 0, firstPayment: 0, allocationMonth: m, computedMonth: m,
+        rows: [], warnings: [], savedAtAllocation: 0, financing: amount, manual: false, totalPaid: 0, existing: true };
+    }
     if (!(amount > 0) || !(s.months > 0)) return null;
     // Şirkete peşinat { amount, percent } (sözleşme tutarının oranı ya da TL); eski kayıtlarda sayı (TL).
     const dv = typeof s.down === 'number' ? { amount: s.down, percent: false } : (s.down || { amount: 0, percent: true });

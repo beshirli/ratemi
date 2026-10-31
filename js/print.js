@@ -97,7 +97,7 @@ function PlanDoc({ plan, a, fields, rep }) {
         <tfoot><tr><td>Toplam</td><td /><td class="num">${money(a.total)}</td>${showCost && html`<td class="num">${moneyShort(a.pvAtBase)}</td>`}</tr></tfoot>
       </table>`}
       ${a.loan && html`<${LoanPart} loan=${a.loan} start=${plan.input.startDate} />`}
-      ${a.savings && html`<${SavingsPart} plan=${a.savings} start=${plan.input.startDate} />`}
+      ${a.savings && !a.savings.existing && html`<${SavingsPart} plan=${a.savings} start=${plan.input.startDate} />`}
     </div>`;
 }
 

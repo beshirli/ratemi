@@ -179,7 +179,8 @@ function secLines(i, a, input) {
         input.interims.length ? html`${input.interims.length} ara ödeme · ${em(moneyShort(total))}` : 'Ara ödeme yok'];
     }
     case 2: return loan ? [html`Kredi ${em(`${pctOf(loan.principal, base)} · ${moneyShort(loan.principal)}`)}`, html`${em(`${loan.months} × ${moneyShort(loan.payment)}`)} · kâr payı ${percent(loan.rate)}`] : ['Kapalı', 'Açınca kampanyalı fiyatın %20’si'];
-    case 3: return sv ? [html`Sözleşme ${em(moneyShort(sv.amount))} · ${em(`${sv.allocationMonth}. ay`)} (${dateMid(DateX.plusMonths(input.startDate, sv.allocationMonth))})`, html`${em(`${sv.months} × ${moneyShort(sv.firstPayment)}`)}${sv.growth > 0 ? ' ↑' : ''} · tasarruf şirketine`] : ['Kapalı', 'Açınca kampanyalı fiyatın %20’si'];
+    case 3: if (sv && sv.existing) return [html`Mevcut tahsisat ${em(moneyShort(sv.amount))} · ${em(`${sv.allocationMonth}. ay`)}`, `${dateMid(DateX.plusMonths(input.startDate, sv.allocationMonth))} · firmaya tek seferde`];
+      return sv ? [html`Sözleşme ${em(moneyShort(sv.amount))} · ${em(`${sv.allocationMonth}. ay`)} (${dateMid(DateX.plusMonths(input.startDate, sv.allocationMonth))})`, html`${em(`${sv.months} × ${moneyShort(sv.firstPayment)}`)}${sv.growth > 0 ? ' ↑' : ''} · tasarruf şirketine`] : ['Kapalı', 'Açınca kampanyalı fiyatın %20’si'];
     default: return b ? [html`Kalan ${em(`${pctOf(b.firmFinanced, base)} · ${moneyShort(b.firmFinanced)}`)}`, a.installmentCount ? html`${em(`${a.installmentCount} × ${a.installment != null ? moneyShort(a.installment) : '—'}`)} · vade farkı ${percent(input.rate)}` : 'Taksit yok'] : ['', ''];
   }
 }
@@ -450,7 +451,27 @@ function SavingsStep({ input, set }) {
   return html`
     <div class="sec-toggle"><${SwitchRow} title="Tahsisat kullan" caption="Tasarruf şirketi tahsisat ayında sözleşme tutarının tamamını firmaya tek seferde öder." checked=${!!s}
       onChange=${(on) => set({ savings: on ? { amount: { amount: 20, percent: true }, down: { amount: 0, percent: true }, months: 53, feeRate: 0.07, feeInstallments: 4, growth: 0, allocationMonth: null } : null })} /></div>
-    ${s && html`
+    ${s && html`<${Segmented} options=${['Mevcut tahsisat', 'Yeni tasarruf kampanyası']} index=${s.existing ? 0 : 1}
+      onChange=${(i) => up(i === 0 ? { existing: true, allocationMonth: s.allocationMonth ?? plan?.allocationMonth ?? 6 } : { existing: false, allocationMonth: null })} />`}
+    ${s && s.existing && html`
+      <${Blk} icon="savings" title="Tahsisat tutarı" caption="firmaya tek seferde gelen · kampanyalı fiyatın">
+        <${AmountPercentFields} value=${s.amount} base=${base} onChange=${(v) => up({ amount: v })} />
+        <button class="link-btn" onClick=${() => up({ amount: { amount: Math.round(rest), percent: false } })}>Kalanın tamamı (${moneyShort(rest)})</button>
+      </${Blk}>
+      <${Blk} icon="calendar" title="Tahsisat tarihi" caption="tutarın firmaya geçeceği gün">
+        <${Stepper} value=${(s.allocationMonth ?? 6) === 0 ? 'Hemen' : `${s.allocationMonth ?? 6}. ay`} caption=${dateOf(s.allocationMonth ?? 6)}
+          onMinus=${() => up({ allocationMonth: Math.max(0, (s.allocationMonth ?? 6) - 1) })} onPlus=${() => up({ allocationMonth: Math.min(360, (s.allocationMonth ?? 6) + 1) })} />
+        <div class="chips-wrap">${[0, 3, 6, 12, 18, 24].map((m) => html`<${Chip} label=${m === 0 ? 'Hemen' : `${m} ay`} selected=${(s.allocationMonth ?? 6) === m} onClick=${() => up({ allocationMonth: m })} />`)}</div>
+        <label class="b-ctl b-date row">
+          <span class="field-label">Tarih seç</span>
+          <span class="b-date-val">${dateOf(s.allocationMonth ?? 6)}<${Icon} name="calendar" size=${16} /></span>
+          <input type="date" value=${DateX.iso(DateX.plusMonths(input.startDate, s.allocationMonth ?? 6))}
+            onChange=${(e) => { if (!e.target.value) return; const a = DateX.parts(input.startDate), b = DateX.parts(DateX.fromIso(e.target.value));
+              up({ allocationMonth: Math.min(360, Math.max(0, (b.y - a.y) * 12 + (b.m - a.m) - (b.d < a.d ? 1 : 0))) }); }} />
+        </label>
+      </${Blk}>
+      ${noTerm(input) && html`<p class="caption">Kalan tutar karşılanıyor: firma vadesi yok.</p>`}`}
+    ${s && !s.existing && html`
       <${Blk} icon="bank" title="Sözleşme tutarı" caption="tahsisatta firmaya gelen · kampanyalı fiyatın">
         <${AmountPercentFields} value=${s.amount} base=${base} onChange=${(v) => up({ amount: v })} />
         <button class="link-btn" onClick=${() => up({ amount: { amount: Math.round(rest), percent: false } })}>Kalanın tamamı (${moneyShort(rest)})</button>
@@ -557,10 +578,10 @@ function loanSavingsCards(app, a, start) {
         <${Icon} name="forward" size=${18} />
       </button>`}
     ${a.savings && html`
-      <button class="card loan-card" onClick=${() => app.sheet(html`<${SavingsSheet} plan=${a.savings} start=${start} onClose=${app.closeSheet} />`)}>
+      <button class="card loan-card" onClick=${() => !a.savings.existing && app.sheet(html`<${SavingsSheet} plan=${a.savings} start=${start} onClose=${app.closeSheet} />`)}>
         <span class="icon-tile tone-teal"><${Icon} name="clock" size=${22} /></span>
         <span class="grow"><span class="row-title">Tahsisat · ${moneyShort(a.savings.amount)}</span>
-          <span class="caption">${a.savings.allocationMonth}. ay (${dateMid(DateX.plusMonths(start, a.savings.allocationMonth))}) · ${a.savings.months} × ${moneyShort(a.savings.firstPayment)}${a.savings.growth > 0 ? ' (artan)' : ''} · tasarruf planı için dokun</span></span>
+          <span class="caption">${a.savings.allocationMonth}. ay (${dateMid(DateX.plusMonths(start, a.savings.allocationMonth))}) · ${a.savings.existing ? 'mevcut tahsisat' : `${a.savings.months} × ${moneyShort(a.savings.firstPayment)}${a.savings.growth > 0 ? ' (artan)' : ''} · tasarruf planı için dokun`}</span></span>
         <${Icon} name="forward" size=${18} />
       </button>`}`;
 }
