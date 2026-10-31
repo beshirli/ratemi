@@ -310,9 +310,13 @@ export const Schedules = {
     }
     // Tahsisat firma vadesine yedirilmez: taksitler tahsisat tutarı (nominal) düşülmüş kalan için dengelenir; gecikme
     // maliyeti planın maliyet oranında ayrıca görünür (kullanıcı kararı, 30 Ekim 2026).
-    if (!alloc) return balanced(rows, Schedules.rate(input, taxes), base);
-    const firm = balanced(rows, Schedules.rate(input, taxes), base - alloc.amount);
-    return { ...firm, rows: sortRows([...firm.rows, alloc]), target: base };
+    // Ara ödemeler firma kredisine yansıtılmıyorsa (input.interimToFirm === false) taksitler onları nominal tutarıyla düşer.
+    const r = Schedules.rate(input, taxes);
+    const adjust = input.interimToFirm === false
+      ? rows.filter((p) => p.kind === Kind.INTERIM).reduce((t, p) => t + p.amount * Finance.discountFactor(r, period(p)) - p.amount, 0) : 0;
+    if (!alloc) return balanced(rows, r, base + adjust);
+    const firm = balanced(rows, r, base - alloc.amount + adjust);
+    return { ...firm, rows: sortRows([...firm.rows, alloc]), target: base + adjust };
   },
 
   toTemplate(plan, name, baseRate, taxes) {
@@ -382,7 +386,7 @@ export function analyze(plan, baseRate, taxes) {
   let installment = null, best = 0;
   counts.forEach((c, amt) => { if (c > best) { best = c; installment = amt; } });
   return {
-    schedule, rows, baseRate, listPrice, total, pvAtBase, loan, contribution, savings,
+    schedule, rows, baseRate, listPrice, total, pvAtBase, loan, contribution, savings, interimToFirm: plan.input.interimToFirm !== false,
     // Tahsisatın kendi maliyeti: tutar − tahsisat ayındaki tutarın baz oranla bugünkü değeri (firma vadesine yedirilmez).
     allocationCost: savings ? savings.amount * (1 - Finance.discountFactor(baseRate, savings.allocationMonth)) : 0,
     basePrice: basePrice(plan.input),
@@ -402,13 +406,18 @@ export function costBreakdown(a) {
   const nonInst = a.rows.filter((r) => r.kind !== Kind.INSTALLMENT && r.kind !== Kind.GRACE);
   const firmFinanced = a.basePrice - nonInst.reduce((t, r) => t + r.amount, 0);
   const inst = by([Kind.INSTALLMENT]);
-  const b = {
+  // Ara ödemeler firma kredisine yansıtılıyorsa (ve firma taksiti varsa) zaman maliyetleri firma kredisinde görünür.
+  const toFirm = a.interimToFirm !== false && inst.length > 0;
+  const b0 = {
     discount: a.listPrice - a.basePrice,
     downInterim: by([Kind.DOWN, Kind.INTERIM]).reduce((t, r) => t + r.amount - pv(r), 0),
     bank: a.contribution + by([Kind.CREDIT]).reduce((t, r) => t + r.amount - pv(r), 0),
     allocation: by([Kind.ALLOCATION]).reduce((t, r) => t + r.amount - pv(r), 0),
     firm: firmFinanced - inst.reduce((t, r) => t + pv(r), 0),
   };
+  // Firma taksiti yoksa firma kredisi de yok: kalan fark ara ödemeler satırında görünür.
+  const b = !inst.length ? { ...b0, downInterim: b0.downInterim + b0.firm, firm: 0 }
+    : toFirm ? { ...b0, downInterim: 0, firm: b0.firm + b0.downInterim } : b0;
   const total = b.discount + b.downInterim + b.bank + b.allocation + b.firm;
   const ratio = (v) => (a.listPrice > 0 ? v / a.listPrice : 0);
   const sorted = [...inst].sort((x, y) => period(x) - period(y));

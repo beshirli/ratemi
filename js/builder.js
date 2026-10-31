@@ -287,7 +287,10 @@ function InputsPanel({ input, set, step, number }) {
         <div class="b-inline">
           <span class="caption">Ara ödeme ayında</span>
           <${Segmented} options=${['Taksit de ödenir', 'Taksit pas geçilir']} index=${input.skipOnInterim ? 1 : 0} onChange=${(i) => set({ skipOnInterim: i === 1 })} />
-        </div>`}`}
+        </div>`}
+      ${input.interims.length > 0 && !noTerm(input) && html`<${SwitchRow} title="Ara ödemelerin finansal maliyetini firma kredisine yansıt"
+        caption=${input.interimToFirm !== false ? 'Taksitler ara ödemelerin geç gelmesini telafi eder (vade farkı oranıyla).' : 'Taksitler ara ödemeleri nominal tutarıyla düşer; gecikme maliyeti firmaya kalır.'}
+        checked=${input.interimToFirm !== false} onChange=${(v) => set({ interimToFirm: v })} />`}`}
     </div>`,
 
     () => html`<${CreditStep} input=${input} set=${set} no=${no} />`,

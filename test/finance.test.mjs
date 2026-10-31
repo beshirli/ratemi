@@ -120,6 +120,17 @@ for (const [name, inp] of [['satış', sale], ['kredi', { ...sale, credit: { amo
   const cb = costBreakdown(an);
   eq(`kırılım = maliyet (${name})`, an.costRatio, cb.ratio(cb.total), 1e-9);
 }
+// Ara ödeme maliyeti firma kredisine yansıt / yansıtma (vade farkı = baz oran).
+{
+  const atBase = { ...sale, rate: 0.0299 };
+  const on = analyze({ input: atBase, rows: null, balance: null }, 0.0299, taxes);
+  const off = analyze({ input: { ...atBase, interimToFirm: false }, rows: null, balance: null }, 0.0299, taxes);
+  const bon = costBreakdown(on), boff = costBreakdown(off);
+  eq('yansıt: firma 0', 0, bon.firm, 1); eq('yansıt: ara 0', 0, bon.downInterim, 1e-9);
+  eq('yansıtma: firma 0', 0, boff.firm, 1); eq('yansıtma: ara > 0', 1, boff.downInterim > 0 ? 1 : 0);
+  eq('yansıtma: taksit küçük', 1, off.installment < on.installment ? 1 : 0);
+  eq('yansıtma: kırılım = maliyet', off.costRatio, boff.ratio(boff.total), 1e-9);
+}
 const tr2 = suggest(tailorIn(5000, false, false), 0.0299, taxes);
 eq('terzi: bütçe yetmez', 1, !tr2.found && tr2.shortfall && tr2.closest ? 1 : 0);
 console.log(fails ? `${fails} HATA` : 'Tüm testler geçti');
