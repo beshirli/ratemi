@@ -78,7 +78,7 @@ export function HomeScreen() {
         </div>
         <div class="list-head"><span class="section-label">Kayıtlarım · ${shown.length}</span><span class="caption">Planlar “Kaydet” ile saklanır</span></div>
         <div class="filters">
-          <${Chip} label="Tümü" selected=${!filter} color="var(--wordmark)" onClick=${() => setFilter(null)} />
+          <${Chip} label="Tümü" selected=${!filter} color="var(--chip-all)" onClick=${() => setFilter(null)} />
           ${Object.entries(KIND).map(([k, v]) => html`<${Chip} label=${v.label} selected=${filter === k} color=${v.color} onClick=${() => setFilter(filter === k ? null : k)} />`)}
         </div>
         ${!shown.length && html`<${Card}><div class="row-title">Henüz kayıt yok</div><p class="caption">Oluşturduğun ödeme planları, teklif oranı ve değer çevirici çalışmaları burada kendiliğinden saklanır.</p></${Card}>`}

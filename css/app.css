@@ -20,21 +20,21 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --canvas: #0B1020; --card: #121A2E; --card-border: rgba(159, 180, 255, .1);
-    --label: #E8ECF7; --label2: #94A0B8; --label3: #66708A; --sep: rgba(159, 180, 255, .12); --fill: rgba(159, 180, 255, .08);
-    --tint: #9FB4FF; --tint-soft: #1E2A52; --teal: #5FD3DF; --teal-soft: #123238; --indigo: #A9A8FF; --indigo-soft: #24234F;
-    --green: #7FE39A; --green-soft: #13301F; --amber: #FFC266; --amber-soft: #3A2A10; --red: #FF8F8F; --red-soft: #3A1616;
-    --down-bar: #8C9BE0; --down-row: #1A2244; --inst-bar: #4F78F0; --interim-bar: #22BFD0; --interim-row: #10262C;
-    --locked-row: #1B1A3A; --wordmark: #DDE5FF; --shadow: 0 6px 24px rgba(0, 0, 0, .3); color-scheme: dark;
+    --canvas: #111A48; --card: #1B2558; --card-border: rgba(255, 255, 255, .1);
+    --label: #EEF2FF; --label2: #A3ADD0; --label3: #7480A8; --sep: rgba(255, 255, 255, .08); --fill: rgba(255, 255, 255, .07);
+    --tint: #8FB4FF; --tint-soft: #24306A; --teal: #4BE3F0; --teal-soft: #133A52; --indigo: #A9A8FF; --indigo-soft: #2A2A66;
+    --green: #7FE39A; --green-soft: #15382F; --amber: #FFC266; --amber-soft: #3E2E16; --red: #FF8F8F; --red-soft: #3E1A24;
+    --down-bar: #8FB4FF; --down-row: #1F2C66; --inst-bar: #4F78F0; --interim-bar: #22BFD0; --interim-row: #143A55;
+    --locked-row: #25235A; --wordmark: #FFFFFF; --shadow: 0 10px 30px rgba(3, 6, 25, .45); color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --canvas: #0B1020; --card: #121A2E; --card-border: rgba(159, 180, 255, .1);
-  --label: #E8ECF7; --label2: #94A0B8; --label3: #66708A; --sep: rgba(159, 180, 255, .12); --fill: rgba(159, 180, 255, .08);
-  --tint: #9FB4FF; --tint-soft: #1E2A52; --teal: #5FD3DF; --teal-soft: #123238; --indigo: #A9A8FF; --indigo-soft: #24234F;
-  --green: #7FE39A; --green-soft: #13301F; --amber: #FFC266; --amber-soft: #3A2A10; --red: #FF8F8F; --red-soft: #3A1616;
-  --down-bar: #8C9BE0; --down-row: #1A2244; --inst-bar: #4F78F0; --interim-bar: #22BFD0; --interim-row: #10262C;
-  --locked-row: #1B1A3A; --wordmark: #DDE5FF; --shadow: 0 6px 24px rgba(0, 0, 0, .3); color-scheme: dark;
+  --canvas: #111A48; --card: #1B2558; --card-border: rgba(255, 255, 255, .1);
+  --label: #EEF2FF; --label2: #A3ADD0; --label3: #7480A8; --sep: rgba(255, 255, 255, .08); --fill: rgba(255, 255, 255, .07);
+  --tint: #8FB4FF; --tint-soft: #24306A; --teal: #4BE3F0; --teal-soft: #133A52; --indigo: #A9A8FF; --indigo-soft: #2A2A66;
+  --green: #7FE39A; --green-soft: #15382F; --amber: #FFC266; --amber-soft: #3E2E16; --red: #FF8F8F; --red-soft: #3E1A24;
+  --down-bar: #8FB4FF; --down-row: #1F2C66; --inst-bar: #4F78F0; --interim-bar: #22BFD0; --interim-row: #143A55;
+  --locked-row: #25235A; --wordmark: #FFFFFF; --shadow: 0 10px 30px rgba(3, 6, 25, .45); color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -842,4 +842,22 @@ body.modal-open { overflow: hidden; }
   .lp-btn { height: 54px; border-radius: 16px; font-size: 16px; }
   .lp-feats { padding: 0 20px 18px; }
   .lp-foot { color: rgba(255, 255, 255, .5); margin: 0; }
+}
+
+/* Koyu tema (9 Kasım 2026, varsayılan): gece mavisi zemin, açılış sayfasıyla aynı parıltı. */
+:root[data-theme="dark"] body { background: radial-gradient(900px 600px at 85% 0%, rgba(52, 86, 222, .3), transparent 60%), radial-gradient(700px 500px at 100% 100%, rgba(34, 191, 208, .14), transparent 60%), linear-gradient(165deg, #0B1236 0%, #111A48 55%, #162260 100%) fixed; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body { background: radial-gradient(900px 600px at 85% 0%, rgba(52, 86, 222, .3), transparent 60%), radial-gradient(700px 500px at 100% 100%, rgba(34, 191, 208, .14), transparent 60%), linear-gradient(165deg, #0B1236 0%, #111A48 55%, #162260 100%) fixed; }
+}
+:root { --chip-all: #1C2B6E; }
+:root[data-theme="dark"] { --chip-all: #3456DE; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --chip-all: #3456DE; } }
+/* Koyu temada bölüm tonları: açık "wash" zeminler gece mavisine karışır, yazı tonları açılır. */
+:root[data-theme="dark"] :is(.tone-indigo, .tone-sky, .tone-blue, .tone-turq, .tone-petrol) {
+  --tone-wash: color-mix(in srgb, var(--tone) 12%, var(--card)); --tone-soft: color-mix(in srgb, var(--tone) 26%, var(--card));
+  --tone-ink: color-mix(in srgb, var(--tone) 55%, #fff); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) :is(.tone-indigo, .tone-sky, .tone-blue, .tone-turq, .tone-petrol) {
+    --tone-wash: color-mix(in srgb, var(--tone) 12%, var(--card)); --tone-soft: color-mix(in srgb, var(--tone) 26%, var(--card));
+    --tone-ink: color-mix(in srgb, var(--tone) 55%, #fff); }
 }

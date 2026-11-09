@@ -11,7 +11,7 @@ export const defaultSettings = () => ({
   taxes: JSON.parse(JSON.stringify(DefaultTaxes)),
   discountOn: false,
   discountPercent: 5,
-  theme: 'system',
+  theme: 'dark',
   salesRep: '',
   // Ödeme planında banka kredisi adımı açık mı (Ayarlar › Ödeme planı).
   creditEnabled: true,
@@ -39,6 +39,8 @@ function write(key, value) {
 export function loadSettings() {
   const s = { ...defaultSettings(), ...read(KEY_SETTINGS, {}) };
   s.taxes = { ...DefaultTaxes, ...s.taxes };
+  // 9 Kasım 2026: koyu tema varsayılan oldu; eski kayıtlı tema bir kez koyuya çevrilir.
+  if (!s.themeV2) { s.theme = 'dark'; s.themeV2 = true; }
   return s;
 }
 
