@@ -111,7 +111,7 @@ export const Badge = ({ children, tone = 'blue' }) => html`<span class=${'badge 
 export const Logo = ({ small }) => html`
   <div class=${'brand' + (small ? ' small' : '')}>
     <img src="img/logo.png" alt="" />
-    <span class="brand-text"><span class="wordmark">Ratemi</span><span class="byline">Nazım Beşirli tarafından geliştirildi</span></span>
+    <span class="brand-text"><span class="wordmark">Ratemi</span><span class="byline">Teklifin arkasındaki oranı gör.</span></span>
   </div>`;
 
 // --- Sayı alanları ---

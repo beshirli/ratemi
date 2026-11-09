@@ -12,6 +12,7 @@ import {
 import { TRASH_DAYS } from './store.js';
 import { AccountSection } from './account.js';
 import { TailorSettings } from './tailorui.js';
+import { Rings } from './landing.js';
 
 const KIND = {
   SCHEDULE: { label: 'Planlar', icon: 'table', tone: 'blue', color: 'var(--tint)' },
@@ -45,7 +46,17 @@ const MobileHeader = ({ children }) => {
   </header>`;
 };
 
-// --- Ana sayfa ---
+// --- Ana sayfa (9 Kasım 2026: koyu tema tasarımı) ---
+
+const greeting = () => { const h = new Date().getHours(); return h < 6 ? 'İyi geceler' : h < 12 ? 'Günaydın' : h < 18 ? 'İyi günler' : 'İyi akşamlar'; };
+const DAYS = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+const todayKicker = () => { const d = new Date(); return `${DAYS[d.getDay()]} · ${d.getDate()} ${MONTHS[d.getMonth()]}`; };
+const TOOLS = [
+  { key: 'offer', title: 'Teklifin gerçek oranı', cap: 'Aylık gerçek maliyet (IRR)', icon: 'trend', grad: 'grad-offer', go: (app) => app.newOffer },
+  { key: 'conv', title: 'Değer çevirici', cap: 'Bugün ↔ gelecek', icon: 'clock', grad: 'grad-conv', go: (app) => app.newConversion },
+  { key: 'tailor', title: 'Terzi usulü plan', cap: 'Ödeme gücüne göre plan', icon: 'sliders', grad: 'grad-tailor', go: (app) => app.openTailor },
+];
 
 export function HomeScreen() {
   const app = useApp();
@@ -55,44 +66,57 @@ export function HomeScreen() {
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .map((r) => ({ r, ...describe(app, r) }));
   const shown = items.filter((x) => !filter || x.r.type === filter);
+  const tools = TOOLS.filter((t) => t.key !== 'tailor' || app.settings.tailorEnabled !== false);
+  const lastPlan = items.find((x) => x.r.type === 'SCHEDULE');
+  const lastA = lastPlan ? app.analyzePlan(lastPlan.r.data) : null;
+  const templates = app.records.filter((r) => r.type === 'TEMPLATE' && !r.deletedAt).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 4);
+  const name = app.session?.name ? String(app.session.name).split(' ')[0] : '';
   return html`
     <div class="screen">
       <${MobileHeader}><div class="ah-pill"><${BaseRatePill} /></div></${MobileHeader}>
       <div class="content home">
-        <div class="desk-head desktop-only"><div><h1>Ana sayfa</h1><p class="caption">Ödeme planı, teklif oranı ve değer çevirici</p></div><${BaseRatePill} /></div>
-        <div class="home-actions">
-          <button class="hero grad-logo" onClick=${app.newPlan}>
-            <span class="icon-tile tile-lg on-grad"><${Icon} name="add" size=${26} /></span>
-            <span class="grow"><span class="hero-title">Ödeme Planı Oluştur</span><span class="hero-cap">Konut, taşıt, ihtiyaç · iskonto, peşinat, ara ödeme</span></span>
-            <${Icon} name="forward" size=${22} />
+        <div class="desk-head desktop-only"><div><div class="kicker">${todayKicker()}</div><h1>${greeting()}${name ? ', ' + name : ''}</h1></div><${BaseRatePill} /></div>
+        <div class=${'home-actions n' + tools.length}>
+          <button class="hero grad-header" onClick=${app.newPlan}>
+            <${Rings} id="hr" track=${0.12} cls="hero-rings" />
+            <span class="icon-tile tile-lg on-grad"><${Icon} name="table" size=${24} /></span>
+            <span class="hero-text"><span class="hero-title">Ödeme Planı Oluştur</span><span class="hero-cap">Peşinat, banka kredisi, tahsisat ve firma kredisi tek planda</span></span>
           </button>
-          <div class="tools">
-            <button class="tool grad-offer" onClick=${app.newOffer}><span class="icon-tile on-grad"><${Icon} name="trend" /></span><span class="tool-title">Teklifin gerçek oranı</span><span class="tool-cap">IRR analizörü</span></button>
-            <button class="tool grad-conv" onClick=${app.newConversion}><span class="icon-tile on-grad"><${Icon} name="clock" /></span><span class="tool-title">Değer çevirici</span><span class="tool-cap">Bugün ↔ gelecek</span></button>
-          </div>
-          ${app.settings.tailorEnabled !== false && html`<button class="tool-wide grad-tailor" onClick=${app.openTailor}>
-            <span class="icon-tile on-grad"><${Icon} name="sliders" /></span>
-            <span class="grow"><span class="tool-title">Terzi usulü plan</span><span class="tool-cap">Müşterinin gücüne göre en uygun üç plan</span></span>
-            <${Icon} name="forward" size=${20} />
-          </button>`}
+          ${tools.map((t) => html`<button class="tool glassy" key=${t.key} onClick=${t.go(app)}><span class=${'icon-tile tool-ic ' + t.grad}><${Icon} name=${t.icon} /></span><span class="tool-title">${t.title}</span><span class="tool-cap">${t.cap}</span></button>`)}
         </div>
-        <div class="list-head"><span class="section-label">Kayıtlarım · ${shown.length}</span><span class="caption">Planlar “Kaydet” ile saklanır</span></div>
-        <div class="filters">
-          <${Chip} label="Tümü" selected=${!filter} color="var(--chip-all)" onClick=${() => setFilter(null)} />
-          ${Object.entries(KIND).map(([k, v]) => html`<${Chip} label=${v.label} selected=${filter === k} color=${v.color} onClick=${() => setFilter(filter === k ? null : k)} />`)}
-        </div>
-        ${!shown.length && html`<${Card}><div class="row-title">Henüz kayıt yok</div><p class="caption">Oluşturduğun ödeme planları, teklif oranı ve değer çevirici çalışmaları burada kendiliğinden saklanır.</p></${Card}>`}
-        <div class="record-grid">
-          ${shown.map(({ r, subtitle, badge }) => html`
-            <div class="card record clickable" key=${r.id} onClick=${() => app.openRecord(r)}>
-              <${IconTile} icon=${KIND[r.type].icon} tone=${KIND[r.type].tone} />
-              <div class="grow min0">
-                <div class="row-title clamp2">${r.name || 'Adsız'}</div>
-                <div class="caption ellipsis">${[subtitle, dayLabel(r.updatedAt)].filter(Boolean).join(' · ')}</div>
+        <div class=${'home-lower' + (lastA || templates.length ? ' has-side' : '')}>
+          <div class="card rec-card">
+            <div class="list-head"><span class="row-title">Kayıtlarım <span class="caption inline">· ${shown.length}</span></span>
+              <div class="filters">
+                <${Chip} label="Tümü" selected=${!filter} color="var(--chip-all)" onClick=${() => setFilter(null)} />
+                ${Object.entries(KIND).map(([k, v]) => html`<${Chip} label=${v.label} selected=${filter === k} color=${v.color} onClick=${() => setFilter(filter === k ? null : k)} />`)}
               </div>
-              ${badge && html`<${Badge} tone=${KIND[r.type].tone}>${badge}</${Badge}>`}
-              <${IconButton} icon="trash" label="Sil" cls="del" onClick=${(e) => { e.stopPropagation(); app.deleteRecord(r.id); }} />
-            </div>`)}
+            </div>
+            ${!shown.length && html`<div class="rec-empty"><div class="row-title">Henüz kayıt yok</div><p class="caption">Ödeme planları “Kaydet” ile; teklif ve değer çevirici çalışmaları kendiliğinden burada saklanır.</p></div>`}
+            ${shown.map(({ r, subtitle, badge }) => html`
+              <div class="rec-row clickable" key=${r.id} onClick=${() => app.openRecord(r)}>
+                <i class="rec-dot" style=${'--c:' + KIND[r.type].color} />
+                <div class="grow min0"><div class="rec-title ellipsis">${r.name || 'Adsız'}</div><div class="caption ellipsis">${subtitle}</div></div>
+                <div class="rec-side">${badge && html`<strong>${badge}</strong>`}<span class="caption">${dayLabel(r.updatedAt)}</span></div>
+                <${IconButton} icon="trash" label="Sil" cls="del" onClick=${(e) => { e.stopPropagation(); app.deleteRecord(r.id); }} />
+              </div>`)}
+          </div>
+          ${(lastA || templates.length > 0) && html`<div class="home-side desktop-only">
+            ${lastA && html`<button class="card last-plan clickable" onClick=${() => app.openRecord(lastPlan.r)}>
+              <span class="caption ellipsis">Son plan · ${lastPlan.r.name || 'Adsız'}</span>
+              <span class="lp-body"><${Rings} id="lpr" track=${0.1} cls="lp-ring" />
+                <span><span class="caption">Maliyet oranı</span><strong class="lp-cost">${lastA.costRatio != null ? percent(lastA.costRatio) : '—'}</strong><span class="caption">NBD ${moneyShort(lastA.pvAtBase)}</span></span></span>
+              <span class="lp-total"><span class="caption">Toplam ödeme</span><strong>${moneyShort(lastA.total)}</strong></span>
+            </button>`}
+            <div class="card side-tpl">
+              <div class="row-title">Şablonlar</div>
+              ${!templates.length && html`<p class="caption">Plan ekranındaki yer imiyle şablon kaydedilir.</p>`}
+              ${templates.map((t) => html`<button class="tpl-row" key=${t.id} onClick=${() => app.useTemplate(t)}>
+                <span class="icon-tile tone-blue small"><${Icon} name="bookmark" size=${16} /></span>
+                <span class="grow min0"><span class="rec-title ellipsis">${t.name}</span><span class="caption ellipsis">maliyet ${percent(app.templateCost(t.data))}</span></span></button>`)}
+              <button class="text-action" onClick=${() => app.go('templates')}>Tümünü gör</button>
+            </div>
+          </div>`}
         </div>
       </div>
     </div>`;
@@ -101,11 +125,11 @@ export function HomeScreen() {
 function describe(app, r) {
   if (r.type === 'SCHEDULE') {
     const a = app.analyzePlan(r.data);
-    return { subtitle: a.installment != null ? `${a.installmentCount} × ${moneyShort(a.installment)}` : '', badge: a.costRatio != null ? `Maliyet ${percent(a.costRatio)}` : null };
+    return { subtitle: a.installment != null ? `${a.installmentCount} × ${moneyShort(a.installment)}` : '', badge: a.costRatio != null ? percent(a.costRatio) : null };
   }
   if (r.type === 'OFFER') {
     const o = r.data.offer, irr = Offers.irr(o);
-    return { subtitle: `Peşin ${moneyShort(o.cashPrice)} · ${Offers.rows(o).length} ödeme`, badge: irr ? `IRR ${percent(irr.monthly)}` : null };
+    return { subtitle: `Peşin ${moneyShort(o.cashPrice)} · ${Offers.rows(o).length} ödeme`, badge: irr ? percent(irr.monthly) : null };
   }
   const c = r.data;
   const sub = (c.series ? `Dizi · ${Conversion.targetPeriod(c) === 0 ? 'bugünkü değer' : dateShort(c.to) + ' değeri'}` : c.toFuture ? 'Bugün → gelecek' : 'Gelecek → bugün') + ` · ${percent(c.rate)}`;

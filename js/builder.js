@@ -2,6 +2,7 @@
 // 4 Aylık vade farkı, 5 Plan; üstteki sekmelerle serbest geçiş, 1–4'te altta ince özet ve Geri / İleri.
 // Masaüstünde (WIDE ve üstü) tek sayfa: solda dört girdi bölümü alt alta, sağda anında oluşan plan.
 // Her değişiklik planı anında yeniden hesaplar; kayıt isteğe bağlı ("Kaydet"), şablon ayrı düğmeyle.
+import { Rings } from './landing.js';
 import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
 import { Finance, Kind, Schedules, basePrice, valueOf, firstInstallmentMonth, payDate, period, DateX, isCash, noTerm, creditAmount, SavingsFinance, savingsAmount, customerRows, customerStats, costBreakdown } from './finance.js';
 import { money, moneyShort, percent, dateMid, dayShift, editable } from './format.js';
@@ -683,16 +684,19 @@ function CostCard({ a, onClick }) {
   // Firma vadesi yoksa (kredi kalanı karşılıyor) taksit satırı yok.
   if (a.installmentCount > 0) facts.push([`${a.installmentCount} × taksit`, a.installment != null ? money(a.installment) : '—']);
   const b = costBreakdown(a);
-  const parts = [['İskonto', b.discount], ['Ara ödemeler', b.downInterim], ['Banka kredisi', b.bank], ['Tahsisat', b.allocation], ['Firma kredisi', b.firm]].filter(([, v]) => Math.abs(v) >= 1);
+  const parts = [['İskonto', b.discount, '#8C8CFF'], ['Ara ödemeler', b.downInterim, '#6C9CFF'], ['Banka kredisi', b.bank, '#2F5FE0'], ['Tahsisat', b.allocation, '#4BE3F0'], ['Firma kredisi', b.firm, '#FFFFFF']].filter(([, v]) => Math.abs(v) >= 1);
+  const pos = parts.filter(([, v]) => v > 0);
   return html`
     <button class="cost-card grad-logo" onClick=${onClick}>
+      <${Rings} id="ccr" track=${0.1} cls="cc-rings" />
       <div class="cc-top">
         <div><div class="r-label">Maliyet oranı</div><div class="r-big">${a.costRatio != null ? percent(a.costRatio) : '—'}</div></div>
         <div class="right"><div class="r-label">Toplam NBD</div><div class="r-mid">${moneyShort(a.pvAtBase)}</div></div>
       </div>
       ${parts.length > 0 && html`<div class="cc-break">
         <div class="cb-title">Maliyet kırılımı</div>
-        ${parts.map(([l, v]) => html`<div class="cb-row"><span>${l}${v < 0 ? ' (kazanç)' : ''}</span><small>${moneyShort(v)}</small><strong>${percent(b.ratio(v))}</strong></div>`)}
+        ${pos.length > 0 && html`<div class="cb-bar">${pos.map(([l, v, c]) => html`<i key=${l} style=${`flex:${v};background:${c}`} />`)}</div>`}
+        ${parts.map(([l, v, c]) => html`<div class="cb-row"><i class="cb-dot" style=${'background:' + c} /><span>${l}${v < 0 ? ' (kazanç)' : ''}</span><small>${moneyShort(v)}</small><strong>${percent(b.ratio(v))}</strong></div>`)}
         <div class="cb-row total"><span>Toplam maliyet</span><small>${moneyShort(b.total)}</small><strong>${percent(b.ratio(b.total))}</strong></div>
       </div>`}
       <div class="cc-facts">${facts.map(([l, v]) => html`<div class="cc-fact"><span>${l}</span><strong>${v}</strong></div>`)}</div>

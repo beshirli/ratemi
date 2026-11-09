@@ -861,3 +861,77 @@ body.modal-open { overflow: hidden; }
     --tone-wash: color-mix(in srgb, var(--tone) 12%, var(--card)); --tone-soft: color-mix(in srgb, var(--tone) 26%, var(--card));
     --tone-ink: color-mix(in srgb, var(--tone) 55%, #fff); }
 }
+
+/* --- Ana sayfa yeni tasarım (9 Kasım 2026) --- */
+.grad-header { background: linear-gradient(115deg, #1C2B6E 0%, #3456DE 52%, #22BFD0 100%); color: #fff; }
+.kicker { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--label3); }
+.desk-head h1 { letter-spacing: -.02em; margin-top: 2px; }
+.brand .byline { font-size: 10.5px; color: var(--label3); margin-top: 3px; }
+.app-header .brand .byline { display: none; }
+.home-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.home-actions.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.home-actions .hero { width: 100%; grid-column: 1 / -1; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 18px; border-radius: 22px; box-shadow: 0 14px 34px rgba(52, 86, 222, .35); }
+.hero-rings { position: absolute; right: 16px; top: 16px; width: 64px; height: 64px; pointer-events: none; filter: drop-shadow(0 4px 14px rgba(11, 18, 54, .35)); }
+.hero-text { position: relative; display: flex; flex-direction: column; gap: 4px; }
+.hero .hero-title { font-size: 20px; font-weight: 700; }
+.hero .hero-cap { font-size: 13px; opacity: .82; max-width: 300px; }
+.tool.glassy { background: var(--card); border: 1px solid var(--card-border); color: var(--label); padding: 12px; border-radius: 18px; box-shadow: var(--shadow); min-height: 104px; }
+.tool.glassy .tool-ic { width: 36px; height: 36px; border-radius: 11px; color: #fff; margin-bottom: 10px; }
+.tool.glassy .tool-title { font-size: 13px; font-weight: 600; line-height: 1.25; }
+.tool.glassy .tool-cap { display: none; color: var(--label2); opacity: 1; font-size: 12px; margin-top: 3px; }
+.home-lower { display: grid; gap: 14px; }
+.rec-card { padding: 14px 6px 6px; display: flex; flex-direction: column; }
+.rec-card .list-head { flex-direction: column; align-items: stretch; gap: 10px; margin: 0 8px 6px; }
+.caption.inline { display: inline; font-weight: 400; }
+.rec-empty { padding: 8px 10px 12px; }
+.rec-row { display: flex; align-items: center; gap: 12px; padding: 11px 8px 11px 12px; border-radius: 14px; }
+.rec-row:hover { background: var(--fill); }
+.rec-dot { width: 10px; height: 10px; border-radius: 5px; flex: none; background: var(--c); box-shadow: 0 0 12px var(--c); }
+.rec-title { font-size: 14px; font-weight: 500; display: block; }
+.rec-side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-variant-numeric: tabular-nums; }
+.rec-side strong { font-size: 15px; font-weight: 600; }
+.rec-row .del { width: 32px; height: 32px; color: var(--label3); opacity: .6; }
+.rec-row .del:hover { color: var(--red); opacity: 1; }
+.home-side { display: flex; flex-direction: column; gap: 14px; }
+.last-plan { display: flex; flex-direction: column; gap: 12px; text-align: left; padding: 18px 20px; }
+.lp-body { display: flex; align-items: center; gap: 16px; }
+.lp-body > span { display: flex; flex-direction: column; align-items: flex-start; }
+.lp-ring { width: 88px; height: 88px; flex: none; }
+.lp-cost { font-size: 30px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.lp-total { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--sep); padding-top: 10px; }
+.lp-total strong { font-size: 16px; font-variant-numeric: tabular-nums; }
+.side-tpl { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; }
+.tpl-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; text-align: left; }
+.tpl-row .grow { display: flex; flex-direction: column; }
+.icon-tile.small { width: 32px; height: 32px; border-radius: 10px; }
+.side-tpl .text-action { align-self: flex-start; margin-top: 4px; }
+@media (min-width: 960px) {
+  .home-actions, .home-actions.n2 { grid-template-columns: 1.35fr repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .home-actions.n2 { grid-template-columns: 1.35fr repeat(2, minmax(0, 1fr)); }
+  .home-actions .hero { grid-column: auto; min-height: 176px; padding: 22px; border-radius: 24px; }
+  .hero-rings { right: 20px; top: 20px; width: 72px; height: 72px; }
+  .hero .hero-title { font-size: 22px; margin-top: auto; }
+  .tool.glassy { padding: 20px; border-radius: 24px; min-height: 176px; }
+  .tool.glassy .tool-ic { width: 46px; height: 46px; border-radius: 13px; margin-bottom: auto; }
+  .tool.glassy .tool-title { font-size: 16px; }
+  .tool.glassy .tool-cap { display: block; }
+  .home-lower.has-side { grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); align-items: start; }
+  .rec-card { padding: 18px 8px 8px; border-radius: 24px; }
+  .rec-card .list-head { flex-direction: row; align-items: center; justify-content: space-between; margin: 0 14px 8px; }
+  .rec-card .filters { display: flex; }
+  .last-plan, .side-tpl { border-radius: 24px; }
+}
+/* Koyu temada kartlar cam gibi (yarı saydam, ince kenar). */
+:root[data-theme="dark"] :is(.tool.glassy, .rec-card, .last-plan, .side-tpl) { background: rgba(255, 255, 255, .055); border-color: rgba(255, 255, 255, .1); box-shadow: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.tool.glassy, .rec-card, .last-plan, .side-tpl) { background: rgba(255, 255, 255, .055); border-color: rgba(255, 255, 255, .1); box-shadow: none; } }
+
+/* Maliyet kartı: köşede halka süsü, renkli kırılım çubuğu (9 Kasım 2026). */
+.cost-card { position: relative; overflow: hidden; }
+.cost-card > :not(.cc-rings) { position: relative; }
+.cc-rings { display: none; }
+.cb-bar { display: flex; gap: 3px; height: 8px; border-radius: 4px; overflow: hidden; margin: 4px 0 8px; }
+.cb-bar i { height: 8px; min-width: 4px; }
+.cb-dot { width: 8px; height: 8px; border-radius: 4px; flex: none; box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
+:root[data-theme="dark"] .cost-card.grad-logo { background: linear-gradient(135deg, rgba(52, 86, 222, .62), rgba(34, 191, 208, .38)); border: 1px solid rgba(255, 255, 255, .16); box-shadow: 0 14px 34px rgba(3, 6, 25, .4); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cost-card.grad-logo { background: linear-gradient(135deg, rgba(52, 86, 222, .62), rgba(34, 191, 208, .38)); border: 1px solid rgba(255, 255, 255, .16); box-shadow: 0 14px 34px rgba(3, 6, 25, .4); } }
+.hero-rings { background: rgba(11, 18, 54, .32); border-radius: 50%; padding: 5px; box-sizing: border-box; }
