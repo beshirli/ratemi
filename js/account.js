@@ -2,6 +2,7 @@
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
 import { moneyShort, percent, dateShort } from './format.js';
 import { DateX } from './finance.js';
+import { Landing } from './landing.js';
 import { Icon, IconButton, GradientButton, OutlineButton, SectionCard, FieldBox, Sheet, SheetTitle, Badge, useApp } from './ui.js';
 
 const NOTICE = 'Giriş, çıkış ve kullanım bilgilerin (oluşturduğun planların özeti dahil) uygulama sahibi Nazım Beşirli tarafından görülebilir. Kayıtlı planların yalnız bu cihazda saklanır.';
@@ -55,6 +56,9 @@ export function LoginScreen() {
   const [show, setShow] = useState(false);
 
   useEffect(() => { cloud.adminExists().then((x) => setNeedSetup(!x)).catch(() => {}); }, []);
+  // Önce açılış sayfası; düğmeler giriş formunu açar (hata varsa doğrudan form).
+  const [form, setForm] = useState(!!app.sessionError);
+  if (!form) return html`<${Landing} onLogin=${() => setForm(true)} />`;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -99,6 +103,7 @@ export function LoginScreen() {
         <p class="caption login-note">${NOTICE}</p>
         ${needSetup && !setup && html`<button type="button" class="text-action center" onClick=${() => { setMode('setup'); setErr(''); }}>İlk kurulum: yönetici hesabını oluştur</button>`}
         ${setup && html`<button type="button" class="text-action center" onClick=${() => setMode('login')}>Girişe dön</button>`}
+        ${!setup && html`<button type="button" class="text-action center" onClick=${() => setForm(false)}>← Ratemi'yi tanı</button>`}
       </form>
     </div>`;
 }
